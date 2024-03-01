@@ -1,0 +1,114 @@
+---
+title: "summarize_labvsfield_LRVs"
+author: "Camille Zimmer"
+date: "2024-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Clear environment 
+rm(list = ls())
+
+#Load libraries
+library(tidyverse)
+library(readxl)
+library(writexl)
+
+# import data
+rawLRVdata = read_excel("inputdata/LRVs_forsummary.xlsx")
+```
+
+
+
+```{r summarise LRVs}
+
+# Get LRV data that have corresponding manufcturer data
+subsetLRVs = rawLRVdata %>%
+    drop_na(manuf_Ecoli, manuf_yeast)
+
+
+# Summarise lab and field LRVs by the name of the treatment device
+summ_LRVs_bytreatmentname = subsetLRVs %>%
+    group_by(treatment_type, treatment_name) %>%
+    summarise(
+        n = n(), 
+        frac = n/104*100,
+        mean_LRV_Ecoli = mean(LRV_Ecoli), 
+        sd_LRV_Ecoli = sd(LRV_Ecoli),
+        l95_LRV_Ecoli = mean_LRV_Ecoli - 1.96*sd_LRV_Ecoli/sqrt(n),
+        u95_LRV_Ecoli = mean_LRV_Ecoli + 1.96*sd_LRV_Ecoli/sqrt(n),
+        manuf_Ecoli = mean(manuf_Ecoli),
+        mean_LRV_yeast = mean(LRV_yeast),
+        sd_LRV_yeast = sd(LRV_yeast),
+        l95_LRV_yeast = mean_LRV_yeast - 1.96*sd_LRV_yeast/sqrt(n),
+        u95_LRV_yeast = mean_LRV_yeast + 1.96*sd_LRV_yeast/sqrt(n),
+        manuf_yeast = mean(manuf_yeast)
+    )
+write_xlsx(summ_LRVs_bytreatmentname, "output_summarizeLRVs/summ_LRVs_bytreatmentname.xlsx")
+
+# Summarise lab and field LRVs by the type of treatment method (chem, filter, UV)
+summ_LRVs_bytreatmenttype = subsetLRVs %>%
+    group_by(treatment_type) %>%
+    summarise(
+        n = n(), 
+        frac = n/104*100,
+        mean_LRV_Ecoli = mean(LRV_Ecoli),
+        sd_LRV_Ecoli = sd(LRV_Ecoli), 
+        l95_LRV_Ecoli = mean_LRV_Ecoli - 1.96*sd_LRV_Ecoli/sqrt(n), 
+        u95_LRV_Ecoli = mean_LRV_Ecoli + 1.96*sd_LRV_Ecoli/sqrt(n),
+        mean_manuf_Ecoli = mean(manuf_Ecoli), 
+        sd_manuf_Ecoli = sd(manuf_Ecoli), 
+        l95_manuf_Ecoli = mean_manuf_Ecoli - 1.96*sd_manuf_Ecoli/sqrt(n),
+        u95_manuf_Ecoli = mean_manuf_Ecoli + 1.96*sd_manuf_Ecoli/sqrt(n),
+        mean_LRV_yeast = mean(LRV_yeast),
+        sd_LRV_yeast = sd(LRV_yeast), 
+        l95_LRV_yeast = mean_LRV_yeast - 1.96*sd_LRV_yeast/sqrt(n), 
+        u95_LRV_yeast = mean_LRV_yeast + 1.96*sd_LRV_yeast/sqrt(n),
+        mean_manuf_yeast = mean(manuf_yeast), 
+        sd_manuf_yeast = sd(manuf_yeast), 
+        l95_manuf_yeast = mean_manuf_yeast - 1.96*sd_manuf_yeast/sqrt(n),
+        u95_manuf_yeast = mean_manuf_yeast + 1.96*sd_manuf_yeast/sqrt(n)
+    )
+write_xlsx(summ_LRVs_bytreatmenttype, "output_summarizeLRVs/summ_LRVs_bytreatmenttype.xlsx")
+
+# Summarise lab and field LRVs overall
+summ_LRVs_overall = subsetLRVs %>%
+    group_by() %>%
+    summarise(
+        n = n(), 
+        frac = n/104*100,
+        mean_LRV_Ecoli = mean(LRV_Ecoli),
+        sd_LRV_Ecoli = sd(LRV_Ecoli), 
+        l95_LRV_Ecoli = mean_LRV_Ecoli - 1.96*sd_LRV_Ecoli/sqrt(n), 
+        u95_LRV_Ecoli = mean_LRV_Ecoli + 1.96*sd_LRV_Ecoli/sqrt(n),
+        min_LRV_Ecoli = min(LRV_Ecoli),
+        max_LRV_Ecoli = max(LRV_Ecoli), 
+        
+        mean_manuf_Ecoli = mean(manuf_Ecoli), 
+        sd_manuf_Ecoli = sd(manuf_Ecoli), 
+        l95_manuf_Ecoli = mean_manuf_Ecoli - 1.96*sd_manuf_Ecoli/sqrt(n),
+        u95_manuf_Ecoli = mean_manuf_Ecoli + 1.96*sd_manuf_Ecoli/sqrt(n),
+        min_manuf_Ecoli = min(manuf_Ecoli),
+        max_manuf_Ecoli = max(manuf_Ecoli),
+        
+        mean_LRV_yeast = mean(LRV_yeast),
+        sd_LRV_yeast = sd(LRV_yeast), 
+        l95_LRV_yeast = mean_LRV_yeast - 1.96*sd_LRV_yeast/sqrt(n), 
+        u95_LRV_yeast = mean_LRV_yeast + 1.96*sd_LRV_yeast/sqrt(n),
+        min_LRV_yeast = min(LRV_yeast),
+        max_LRV_yeast = max(LRV_yeast), 
+        
+        mean_manuf_yeast = mean(manuf_yeast), 
+        sd_manuf_yeast = sd(manuf_yeast), 
+        l95_manuf_yeast = mean_manuf_yeast - 1.96*sd_manuf_yeast/sqrt(n),
+        u95_manuf_yeast = mean_manuf_yeast + 1.96*sd_manuf_yeast/sqrt(n), 
+        min_manuf_yeast = min(manuf_yeast),
+        max_manuf_yeast = max(manuf_yeast)
+    )
+write_xlsx(summ_LRVs_overall, "output_summarizeLRVs/summ_LRVs_overall.xlsx")
+
+```
+
+

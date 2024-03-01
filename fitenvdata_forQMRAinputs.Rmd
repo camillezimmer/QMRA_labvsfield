@@ -1,0 +1,196 @@
+---
+title: "fitenvdata_forQMRAinputs"
+author: "Camille Zimmer"
+date: "2024-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Clear environment
+rm(list = ls())
+
+#Load libraries
+library(tidyverse)
+library(fitdistrplus)
+library(readxl)
+library(mc2d)
+library(truncnorm)
+
+```
+
+```{r drinking water volume}
+
+## Data wrangling
+# import survey data for drinking water 
+data = read_excel("inputdata/surveydata_forcurvefitting.xlsx")
+
+# extract DW consumed per day (L/day)
+DW_consumed_Lperday = data$DW_consumed_Lperday
+
+
+## Look at proportion of people drinking untreated water
+data %>%
+    group_by(drunk_untreated_YN) %>%
+    summarise(n = n())
+# Result: 7 out of 140 (5%) data points had Y for drinking untreated water at least once per trip
+
+
+## Look at distribution for DW consumed per day
+# Preliminary visualization
+plotdist(DW_consumed_Lperday , histo = TRUE, demp = TRUE)
+descdist(DW_consumed_Lperday, boot = 500)
+
+# #non-skewed distributions
+funi = fitdist(DW_consumed_Lperday, "unif")
+fnorm = fitdist(DW_consumed_Lperday, "norm")
+# #skewed distributions
+# fw = fitdist(DW_consumed_Lperday, "weibull")
+fg = fitdist(DW_consumed_Lperday, "gamma")
+fln = fitdist(DW_consumed_Lperday, "lnorm") 
+
+### Looks like lognormal makes the most sense visually, but normal is the simplest
+plot(fnorm)
+plot(fg)
+plot(fln)
+
+# #Plot all together
+par(mfrow = c(2, 2))
+plot.legend = c( "Normal", "lognormal", "gamma")
+denscomp(list(fnorm, fln, fg), legendtext = plot.legend)
+qqcomp(list(fnorm, fln, fg), legendtext = plot.legend)
+cdfcomp(list(fnorm, fln, fg), legendtext = plot.legend)
+ppcomp(list(fnorm, fln, fg), legendtext = plot.legend)
+
+#Statistics
+# K-S statistic: null hypothesis is that the DW_consumed_Lperday comes from the distribution (i.e., p<0.05, then it doesn't come from that dist). It actually looks at the CDF.
+# CvM statistic: Same, but a nonparamteric test, and sensitive to the center of the distribution 
+# AD statistic: Similar to CvM, and sensitive to the tails of the distribution 
+# NOTE the output values here are the test statistics NOT pvalues
+# To get pvalues: https://stackoverflow.com/questions/23612798/getting-p-values-from-fitdistrplus-in-r
+goodfit = gofstat(list(fnorm, fln, fg), fitnames = c("Normal", "lognormal", "gamma"))
+goodfit
+## According to the GOF statistics \, lognormal and gamma distributions are comparable in terms of GOF
+# Normal also looks good, it puts the average a bit higher which is probably accurate since people drink a lot of water while backpacking
+# RESULT: Select normal because simpler is better --> mean = 2.45 L/day, SD = 1.049
+# So for 3 refills a day, mean = 0.816667 L, SD = 0.3496667 L
+
+```
+
+```{r distribution of env prevalence and concentration of campylobacter}
+
+## PERT dist for campylobacter presence (true/false) ##
+# min = 0%, mode = 25%, max = 60%, shape = NS, per Wilkes et al (2011) and Murphy et al (2016)
+args_PERT = list(min=0,mode=0.25, max=0.6)
+p0 = ggplot()+
+    stat_function(fun = dpert, args = args_PERT, colour = "red")+
+    scale_x_continuous(limits = c(0, 1))+
+    ggtitle("Campylobacter prevalence \n (PERT distribution)")+
+    xlab("Prevalence (%)")
+print(p0) 
+
+
+## Lognormal dist for campylobacter concentration (CFU/100 mL) ##
+# mean = 1.94, sd = 2.22 per Pinntar et al (2017)
+args_lognorm = list(meanlog = 1.94, sdlog = 2.22, log = FALSE)
+p0 = ggplot()+
+    stat_function(fun = dlnorm, args = args_lognorm, colour = "red")+
+    scale_x_continuous(limits = c(0, 100))+
+    ggtitle("Campylobacter concentration (CFU/100 mL) \n (triagular distribution)")+
+    xlab("Campylobacter concentration (CFU/100 mL)")
+print(p0) 
+
+```
+
+```{r distribution of env prevalence and concentration of giardia}
+
+## PERT dist for gardia presence (true/false) ##
+# min = 0%, mode = 19%, max = 42%, shape = unspecified, per Wilkes et al (2011) and Murphy et al (2016)
+# NOTE: This PERT is not used in the QMRA, because we have a point value from Lucas (1998). This is just for visualization
+# The point value for prevalence from Lucas (1998) fits within this PERT distribution but we'll go with the point value because it's more context-relevent
+args_PERT = list(min=0,mode=0.19, max=0.42)
+p0 = ggplot()+
+    stat_function(fun = dpert, args = args_PERT, colour = "red")+
+    scale_x_continuous(limits = c(0, 1))+
+    ggtitle("Giardia prevalence \n (PERT distribution)")+
+    xlab("Prevalence (%)")
+print(p0) 
+
+
+## Fit dist for giardia concentration (oocysts/100 L) ##
+# Data from per Lucas (1998)
+# This is a fit for all the data where giardia was detected (i.e., excluding non-detect values)
+
+#initalize data
+data = c(20, 5.95, 4.98, 3, 2.94, 2.74, 2.11, 2, 1.85, 1.65, 1.5, 1.45, 1.38, 1.35, 1.23, 1.21, 1.21, 1.21, 0.84, 0.72 ,0.71)
+
+# Preliminary visualization
+plotdist(data , histo = TRUE, demp = TRUE)
+descdist(data, boot = 500)
+#Based on this, let's pick lognormal 
+#Lognormal is also what Murphy et al uses for Giardia concentration
+
+# More visualization
+fln = fitdist(data, "lnorm")
+print(fln)
+plot(fln)
+env_data_graph = as.data.frame(data)
+colnames(env_data_graph) = c("giardiadata")
+args = list(meanlog = fln$estimate[1], sdlog = fln$estimate[2], log = FALSE)
+p0 = ggplot(data = env_data_graph)+
+    geom_histogram(mapping = aes(x = giardiadata, y=..density..), fill="white", colour="black", binwidth = 2)+
+    stat_function(fun = dlnorm, args = args, colour = "red")+
+    ggtitle("Giardia concentration (oocysts/100 L) \n (lognormal distribution)")+
+    xlab("Giardia concentration (oocysts/100 L)")
+print(p0)
+
+```
+
+```{r distribution of env prevalence and concentration of e coli}
+
+## NOTE this is not used in the QMRA and is here for info purposes only
+
+## Data from SOmbrio beach field survey
+# Taken weekly for 11 weeks
+# initalize data
+data = c(1,61,8,1,10,67,24,12,28,16,21)
+
+## Prevalence
+#What to assume? We had a prevalence of 100% --> ???
+# Using Murphy et al (2016) for E. coli O157, (PERT parameters 0%, 1%, 2.3%, shape unspecified)
+args_PERT = list(min=0,mode=0.01, max=0.023)
+p0 = ggplot()+
+    stat_function(fun = dpert, args = args_PERT, colour = "red")+
+    scale_x_continuous(limits = c(0, 0.05))+
+    ggtitle("E. coli prevalence \n (PERT distribution)")+
+    xlab("Prevalence (%)")
+print(p0) 
+
+## Concentration
+# Preliminary visualization
+plotdist(data , histo = TRUE, demp = TRUE)
+descdist(data, boot = 500)
+## OK so not uniform, maybe beta
+
+#non-skewed distributions
+fln = fitdist(data, "lnorm") 
+
+# Looks like lognormal is visually the most sensical
+print(fln)
+plot(fln)
+
+envEcoli_data_graph = as.data.frame(data)
+colnames(envEcoli_data_graph) = c("Ecolidata")
+args = list(meanlog = fln$estimate[1], sdlog = fln$estimate[2], log = FALSE)
+
+p0 = ggplot(data = envEcoli_data_graph)+
+    geom_histogram(mapping = aes(x = Ecolidata, y=..density..), fill="white", colour="black", binwidth = 5)+
+    stat_function(fun = dlnorm, args = args, colour = "red")+
+    ggtitle("E. coli concentration (CFU/100 mL) \n (lognormal distribution)")+
+    xlab("E. coli concentration (CFU/100 mL)")
+print(p0) 
+
+```
+
+

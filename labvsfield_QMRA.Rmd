@@ -1,0 +1,93 @@
+---
+title: "labvsfield_QMRA"
+author: "Camille Zimmer"
+date: "2024-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE, set.seed(123)}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Clear environment
+rm(list = ls())
+
+#Load libraries
+library(tidyverse)
+library(fitdistrplus)
+library(readxl)
+library(mc2d)
+library(truncnorm)
+
+# Define number of Monte Carlo observations we want per draw (currently 100 for the first chunks, will be redefined further down)
+nMC = 100
+
+```
+
+
+
+# Part I:  define MC draw functions for QMRA 
+## Step 1: Draw for pathogen concentration in the raw water, for each "DW event"
+### Step 1a: Draw for campylobacter
+```{r draw_campy}
+
+# Make function
+
+# Function inputs:
+#  nMC: the number of monte carlo draws to carry out
+#  plotsdisp: whether to display a summary plot of one of the refill draws
+#  Distribution parameters (prevalence and concentration) are initialized within the function
+
+# Function outputs:
+#  rawcampyconc: a 21 x nMC dataframe where each column is nMC draws for campylobacter concentration for a given water refill
+#  Note: rawcampyconc has units of CFU/L
+draw_campy = function(nMC, plotsdisp) {
+    
+        # See "fitenvdata_forQMRAinputs" code for code and data used to find fit parameters
+        # We'll use meanlog = 1.94, sdlog = 2.22 (Units in CFU/100 mL) --> per Pintar et al (2017)
+        
+        list = list() #create an empty list
+        
+        # First, draw nMC times for the campy concentration
+                for (i in 1:21) {
+                    vec = numeric(nMC) #preallocate a numeric vector
+                    vec = rlnorm(nMC, meanlog = 1.94, sdlog = 2.22) # Units in CFU/100 mL
+                    list[[i]]  = vec
+                }
+        
+        # Wrangle data
+        rawcampyconc = do.call("rbind",list)
+        rawcampyconc = as.data.frame(rawcampyconc)
+        rawcampyconc = t(sapply(rawcampyconc, as.numeric))
+        rawcampyconc = as.data.frame(rawcampyconc)
+
+
+        # Replace some % of values with non-detect to account for prevalence
+        # Prevalence taken from Murphy et al (2016), which is a PERT dist with min = 0, mode = 0.25, max = 0.587 (shape factor not specified)
+        # https://stackoverflow.com/questions/70401107/r-randomly-changing-values-in-a-dataframe
+        # https://stackoverflow.com/questions/72313629/r-randomly-replace-values-with-na
+        # In cases where values are replaced with zero, instead replace them with a value from a PDF to reflect the LDL of Campy sampling
+        # For campy, the LDL is 1 CFU/100 mL, so 10 CFU in 1 L. Therefore 
+        # Make function to replace some % of values with a non-detect
+            FUNcampy = function(x) {
+                censvaluecampy = runif(1, min = 0, max = 1) # Units in CFU/100 mL, define the non-detect value
+                probcampy = rpert(1, min = 0, mode = 0.25, max = 0.578) # probability of a non-detect
+                sample(c(x, censvaluecampy), 1, prob=c(probcampy,(1 - probcampy))) # Replace values in the rawcampyconc df with non-detects
+                }
+        rawcampyconc <- as.data.frame(apply(rawcampyconc, 1:2, FUNcampy)) # Use FUNcampy function to replace values; units in CFU/100 mL
+        rawcampyconc = rawcampyconc * 10 # Get in units of CFU/1 L
+
+        #Visualise one of the draws (set to lucky #13 for now, could set to be rand(1,21) later)
+        if (plotsdisp == TRUE) {
+            plot(density(rawcampyconc$V13))
+        }
+
+return(rawcampyconc)
+
+}
+
+# Check that it works
+rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
+
+```
+
+
