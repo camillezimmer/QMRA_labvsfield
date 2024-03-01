@@ -30,7 +30,7 @@ nMC = 100
 ### Step 1a: Draw for campylobacter
 ```{r draw_campy}
 
-# Make function
+# See "fitenvdata_forQMRAinputs" file for code used to find fit parameters
 
 # Function inputs:
 #  nMC: the number of monte carlo draws to carry out
@@ -66,7 +66,7 @@ draw_campy = function(nMC, plotsdisp) {
         # https://stackoverflow.com/questions/70401107/r-randomly-changing-values-in-a-dataframe
         # https://stackoverflow.com/questions/72313629/r-randomly-replace-values-with-na
         # In cases where values are replaced with zero, instead replace them with a value from a PDF to reflect the LDL of Campy sampling
-        # For campy, the LDL is 1 CFU/100 mL, so 10 CFU in 1 L. Therefore 
+        # For campy, the LDL is 1 CFU/100 mL, so 10 CFU in 1 L.  
         # Make function to replace some % of values with a non-detect
             FUNcampy = function(x) {
                 censvaluecampy = runif(1, min = 0, max = 1) # Units in CFU/100 mL, define the non-detect value
@@ -89,5 +89,71 @@ return(rawcampyconc)
 rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
 
 ```
+
+### Step 1b: Draw for Giardia
+```{r draw_giardia}
+
+# See "fitenvdata_forQMRAinputs" file for code used to find fit parameters
+# We'll use meanlog = 0.6408606, sdlog = 0.7579550; units of oocysts/100 L --> per Lucas (1998)
+# 14% prevalence (point value)
+
+# Function inputs:
+#  nMC: the number of monte carlo draws to carry out
+#  plotsdisp: whether to display a summary plot of one of the refill draws
+#  Distribution parameters (prevalence and concentration) are initialized within the function
+
+# Function outputs:
+#  rawgiardiaconc: a 21 x nMC dataframe where each column is nMC draws for giardia concentration for a given water refill
+#  Note: rawgiardiaconc has units of oocysts/L
+
+
+draw_giardia = function(nMC, plotsdisp) {
+    # Step 1: create data frame with cocnentrations of Giardia
+    list = list() #create an empty list
+    
+    # Populate data frame
+    # See "fitenvdata_forQMRAinputs" code for code and data used to find fit parameters
+    # We'll use meanlog = 0.6408606, sdlog = 0.7579550; units of oocysts/100 L --> per Lucas (1998)
+    # 14% prevalence (point value)
+        for (i in 1:21) {
+            vec = numeric(nMC) #preallocate a numeric vector
+            vec = rlnorm(nMC, meanlog = 0.6408606, sdlog = 0.7579550) # Units in oocysts/100 L
+            list[[i]]  = vec
+        }
+    # data wrangling
+    rawgiardiaconc = do.call("rbind",list)
+    rawgiardiaconc = as.data.frame(rawgiardiaconc)
+    rawgiardiaconc = t(sapply(rawgiardiaconc, as.numeric))
+    rawgiardiaconc = as.data.frame(rawgiardiaconc)
+
+    # Step 2: randomly replace 14.2857142857143% of the samples with 0 (see summary spreadsheet with data from Lucas et al)
+    # https://stackoverflow.com/questions/70401107/r-randomly-changing-values-in-a-dataframe
+    # https://stackoverflow.com/questions/72313629/r-randomly-replace-values-with-na
+    # In cases where values are replaced with zero, instead replace them with a value from a PDF to reflect the LDL of Campy sampling
+    # For giardia, the LDL is 1 oocyst/100 L, so 0.01 CFU in 1 L.  
+    # Make function to replace some % of values with a non-detect
+    FUNgiardia = function(x) {
+        censvaluegiardia = runif(1, min = 0, max = 1) # Define non-detect value; units in oocysts/100 L
+        probgiardia = 0.142857142857143 # Define giardia prevalence
+        sample(c(x, censvaluegiardia), 1, prob=c(probgiardia,(1 - probgiardia))) # Randomly replace 14% of values with a non-detct
+        }
+    rawgiardiaconc <- as.data.frame(apply(rawgiardiaconc, 1:2, FUNgiardia ))  # Units in oocysts/100 L
+    rawgiardiaconc = rawgiardiaconc/100  # Get in units of oocysts/1 L
+
+
+    #Visualise one of the refills (set to lucky #13 for now, could set to be rand(1,21) later)
+    if (plotsdisp == TRUE) {
+    plot(density(rawgiardiaconc$V13))
+    }
+    
+    # Output value
+    return(rawgiardiaconc)
+}
+
+# Check that it works
+rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
+
+```
+
 
 
