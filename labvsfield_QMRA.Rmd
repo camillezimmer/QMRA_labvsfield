@@ -390,27 +390,129 @@ Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
 ## Calculate total P(inf) for the 7-day trip
 ```{r calc_Pinf_trip}
 
+## Calculate the overall probability of infection for the 7-day backpacking trip 
+# Note: This is the second of three model endpoints
 # Formula -->  Pinf_trip = 1 - [(1-Pinf, refill 1)*(1-Pinf, refill 2)...*(1-Pinf, refill 21)]
 
+# Define function to do calculation
+# Inputs
+#   Pinf: a 21 x nMC with each cell containing the Pinf with the pathogen per refill
+# Outputs
+#   Pinf_trip: a 1 x nMC dataframe with the overall probability of infection for the 7-day backpacking trip (unitless)
+
 Pinf_trip = function(Pinf, plotsdisp) {
+    
+    # Do calculations
     Pinf_oneminus = 1-Pinf
     Pinf_trip = Pinf_oneminus %>%
         mutate(prod = Reduce(`*`, .))
     Pinf_trip = Pinf_trip$prod
     Pinf_trip = 1-Pinf_trip
     
+    # Plot
     if (plotsdisp == TRUE) {
-        summ_Pinftrip = summstats(Pinf_trip)  
-        print(summ_Pinftrip)
         plot(density(Pinf_trip))  
-        plot(ecdf(Pinf_trip))
     }
     
+    # Return output
     return(Pinf_trip)
 }
 
-Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = plotsdisp)  # Probability of infection with Campylobacter for a 7-day backpacking trip
-Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = plotsdisp)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+# Check it works
+Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+
+```
+
+
+## Calculate P(ill) for entire trip
+```{r calc_Pill_trip}
+
+
+# Define function to calculate the probability of illness given infection
+
+# Pill = Pinf*Pillinf
+# Use Pillinf from Murphy (2016): a uniform distribution (originally from USEPA, 2010)
+# Campy has min = 0.1, max = 0.6 
+# Giardia has min = 0.2, max = 0.7
+
+# Inputs
+#   nMC: the number of monte carlo draws to carry out
+#   min: the mimimum of the uniform distribution of Pillinf
+#   max: the maximum of the uniform distribution of Pillinf
+# Outputs
+#   Pill_trip: the overall probability of having a symptomatic illness from the 7-day backpacking trip
+
+Pill_trip = function(nMC, Pinf_trip, min, max, plotsdisp) {
+    
+    # MC draws 
+    Pillinf = runif(nMC, min = min, max = max) # Probability of illness given infection
+    Pill_trip = Pinf_trip * Pillinf # Probability of illness given the probability of infection
+    
+    # Display
+    if (plotsdisp == TRUE) {
+        plot(density(Pill_trip))  
+    }
+    
+    # Output
+    return(Pill_trip)
+    
+    
+}
+
+# Try function
+Pill_campy_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_campy_trip, min = 0.1, max = 0.6 , plotsdisp = T)
+Pill_giardia_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_giardia_trip, min = 0.2, max = 0.7, plotsdisp = T)
+```
+
+
+## Calculate DALYs per trip
+```{r calc_DALYs}
+
+# Define function to calculate the total DALYs per 7-day backpacking trip
+
+# DALYs per illness = Pill * S * DW * number of people or life years (per Bivins 2019)
+# Where:
+# Pill was calculated in the last chunk
+
+
+# Inputs
+#   Pill_trip: the overall probability of having a symptomatic illness from the 7-day backpacking trip
+#   S: the susceptible fraction; for both campy and giardia, S = 100%
+#   DW: DALY weighting, the expected DALY weight per illness/case
+#   n_campingtrips: how many camping trips to calculate for. For our purposes here, it will always be 1 but if we were calculating DALYs on a                      per summer basis it could be the number of people hiking the JDF per summer
+# Outputs
+#   DALYs: Total DALYs per 7-day backpacking trip
+
+calcDALYs = function(Pill_trip, S, DW, n_campingtrips, plotsdisp) {
+    
+    # Calculations
+    DALYs = Pill_trip * S * DW * n_campingtrips
+    
+    # Display
+    if (plotsdisp == TRUE) {
+        plot(density(DALYs))  
+    }
+    # Output
+    return(DALYs)
+}
+
+
+## Try the function out
+
+# Initialize values
+# DW_campy = 4.6 per 1000 cases --> From WHO (2016), used in Bivins (2019)
+DW_campy = 4.6/1000 # Units of DALY per illness case
+# DW_giardia = 1.7 per 1000 cases --> From Health Canada (2012)
+DW_giardia = 1.7/1000   # Units of DALY per illness case
+# 100% susceptibility
+S = 1
+# If n_campingtrips = 1, then the DALYs are in units of DALY per person per camping trip
+n_campingtrips = 1
+
+# Use functions
+DALY_campy = calcDALYs(Pill_trip = Pill_campy_trip, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+DALY_giardia = calcDALYs(Pill_trip = Pill_giardia_trip, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
 
 ```
 
