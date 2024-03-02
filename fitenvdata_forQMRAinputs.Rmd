@@ -75,6 +75,9 @@ goodfit
 # Normal also looks good, it puts the average a bit higher which is probably accurate since people drink a lot of water while backpacking
 # RESULT: Select normal because simpler is better --> mean = 2.45 L/day, SD = 1.049
 # So for 3 refills a day, mean = 0.816667 L, SD = 0.3496667 L
+# We will also truncate this distribution at a lower limit of 0.25 L, as it would be implausable for someone to stop and filter less than that
+# **This is per water refill, NOT per day** (21 refills in a 7-day trip)
+
 
 ```
 

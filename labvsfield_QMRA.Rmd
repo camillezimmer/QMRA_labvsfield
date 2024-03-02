@@ -26,8 +26,8 @@ nMC = 100
 
 
 # Part I:  define MC draw functions for QMRA 
-## Step 1: Draw for pathogen concentration in the raw water, for each "DW event"
-### Step 1a: Draw for campylobacter
+## Draw for pathogen concentration in the raw water, for each "DW event"
+### Draw for campylobacter
 ```{r draw_campy}
 
 # See "fitenvdata_forQMRAinputs" file for code used to find fit parameters
@@ -90,7 +90,7 @@ rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
 
 ```
 
-### Step 1b: Draw for Giardia
+### Draw for Giardia
 ```{r draw_giardia}
 
 # See "fitenvdata_forQMRAinputs" file for code used to find fit parameters
@@ -155,5 +155,263 @@ rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
 
 ```
 
+## Populate dataframes with an LRV
+```{r make LRV dataframe}
+
+## Function to make a matrix out of a given LRV
+# Simply takes an input LRV and makes an nxn dataframe populated with it
+# Used to make an 21 x nMC dataframe of LRVs for calculations
+
+# Inputs
+#   LRV: point value to be replicated into dataframe
+#   nrows: how many rows in the df, should be nMC
+#   ncols: how many columns in the df, should be 21
+
+# Outputs
+#   LRVs: an ncols x nrows dataframe populated with LRV in every cell
+
+FUNmakeLRVmx = function(LRV, nrows, ncols){
+    
+    LRVs = rep(LRV, times = nrows)
+    LRVs = data.frame(LRVs)
+    LRVs = cbind(LRVs, rep(LRVs[1], (ncols-1)))
+    colnames(LRVs) = 1:ncol(LRVs)
+    return(LRVs)
+    
+}
+
+
+
+#Check using the first entry of the LRVs_forsummary input data table
+LRVs_Ecoli = FUNmakeLRVmx(LRV = 4.19, nrows = nMC, ncols = 21)
+LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
+
+```
+
+## Draw for drinking water consumption in each "DW event"
+```{r draw_DW_consumption}
+
+# Based on curve fitting of survey data, we can assume that reported DW consumed in a day follows a truncated normal distribution
+# mean = 0.816667 L, SD = 0.3496667 L, lower limit = 0.25 L **This is per water refill, NOT per day** (21 refills in a 7-day trip)
+# see "fitenvdata_forQMRA" R code for how those parameters were generated
+
+
+## Define function to make MC draws for water consumed per refill
+# Inputs
+#   nMC: the number of monte carlo draws to carry out
+#   plotsdisp: whether to display a summary plot of one of the refill draws
+#   Distribution parameters (volume of water consumed per refill) are initialized within the function
+# Outputs
+#   DWvol: a 21 x nMC dataframe populated for draws of the volume of water consumed per refill 
+#          Units in L per refill (21 refills in a 7-day trip)
+
+
+drawDW = function(nMC, plotsdisp){
+
+    list = list() #create an empty list
+    
+    # Make nMC draws for volume of water consumed per refill
+    for (i in 1:21) {
+        vec = numeric(nMC) #preallocate a numeric vector
+        mean = 2.446786*(1/3)
+        sd = 1.049*(1/3)
+        vec = rtruncnorm(n = nMC, a = 0.25, b = Inf, mean = mean, sd = sd) # Trunate at 0.25 L, or half of the mean
+        list[[i]]  = vec
+    }
+    
+    # Wrangle data
+    DWvol = do.call("rbind",list)
+    DWvol = as.data.frame(DWvol)
+    DWvol = t(sapply(DWvol, as.numeric))
+    DWvol = as.data.frame(DWvol)
+    
+    #Visualise one of the draws (set to lucky #13 for now, could set to be rand(1,21) later)
+    if (plotsdisp == TRUE) {
+    plot(density(DWvol$V13))
+    }
+    
+    # DWvol units in L per refill (21 refills per 7-day trip)
+    return(DWvol)
+
+}
+
+# Check that it works
+DWvol = drawDW(nMC = nMC, plotsdisp = T)
+
+```
+
+## Calculate pathogen exposure per DW event and over the 7-day backpacking trip
+```{r calc_exposure}
+
+### Step 1: Calculate exposure in each of the 21 DW refills
+## Reminder: conc of campy and giardia should be #/L before feeding to this function
+# I.e., raworgconc should be in units of organisms per liter
+
+# Define function to calculate the exposure to a given pathogen during each of the 21 refills
+# Inputs
+#   LRVs: a 21 x nMC dataframe populated with the point-value LRV for the water treatment device (see chunk "Populate dataframes with LRV")
+#   raworgconc: a 21 x nMC dataframe populated with the MC draws for pathogen concentration in water (units of #/L)
+#               see the "Draw for campylobacter" and "draw for giardia" chunks
+#   DWvol: a 21 x nMC dataframe populated with the nMC draws for water volume consumed per refill (units of L per refill)
+# Outputs
+#   exposure: a 21 x nMC dataframe with each cell containing the number of pathogens consumed per refill
+
+
+calc_exposure = function(LRVs, raworgconc, DWvol, plotsdisp) {
+    
+    # Step 1: Calculate what the pathogen concentration will be in the drinking water
+    survival = 10^(-1*LRVs) # Units as a % of the number in the raw water [unitless]
+    DW_orgconc = raworgconc * survival # Units of #organisms/1 L
+    
+    # Step 2: Exposure per draw of water
+    # exposure = volume of water consumed in the draw [L] * pathogen concentration in that water [#/L]
+    exposure = DWvol * DW_orgconc # Units of #organisms drunk in the refill event
+    
+    if (plotsdisp == TRUE) {
+    plot(density(exposure$V13))
+    }
+    
+    # exposure is the number of pathogens consumed per refill (units of #/refill)
+    return(exposure)
+    
+}
+
+# Check it works
+exposure_campy = calc_exposure(LRVs = LRVs_Ecoli, raworgconc = rawcampyconc, DWvol = DWvol, plotsdisp = T)  # Units of CFU campylobacter drunk in the refill event
+exposure_giardia = calc_exposure(LRVs = LRVs_yeast, raworgconc = rawgiardiaconc, DWvol = DWvol, plotsdisp = T)  # Units of Giardia oocysts drunk in the refill event
+
+
+## Step 2: Sum across all 21 DW refills --> this will be the total pathogens consumed in a 7-day backpacking trip
+# Note: This is the first of three model endpoints
+
+# Define a function to calculate the total number of pathogens consumed in a 7-day backpacking trip
+# Inputs
+#   exposure: the output from the function calc_exposure, 21 x nMC matrix with each cell as the number of pathogens consumed per refills
+# Outputs
+#   exposure_trip: the total number of pathogens consumed in a 7-day backpacking trip (units of # of pathogens)
+
+
+## NOTE: perhaps call the previous two functions within this one?? 
+
+calc_tripexposure = function(exposure, plotsdisp) {
+    
+    # Sum all the 21 exposures across the rows
+    exposure_trip = exposure %>%
+        mutate(sum = rowSums(.[1:21]))
+    exposure_trip = exposure_trip$sum
+    
+    #Display
+    if (plotsdisp == TRUE) {
+        plot(density(exposure_trip))  
+    }
+    
+    # Output is exposure_trip, total number of pathogens consumed per trip
+    return(exposure_trip)
+}
+
+# Check it works
+exposure_campy_trip = calc_tripexposure(exposure = exposure_campy, plotsdisp = T)  # Units of total CFU campylobacter drunk on a 7-day backpacking trip
+exposure_giardia_trip = calc_tripexposure(exposure = exposure_giardia, plotsdisp = T)  # Units of Giardia oocysts drunk on a 7-day backpacking trip
+
+```
+
+
+## Calculate P(inf) per refill
+```{r calc_Pinf_refill}
+
+## Campylobacter ## 
+
+# From Medema (1996) we have a MLE Beta-Poisson model with alpha = 0.145 and N50 = 890
+# This model is not used by Murphy (2016) but is used by Bivins (2019) -- although he also uses the Teunis model
+
+# NOTE: maybe put in the Teunis model and weight them 50/50? For later
+
+# Define function to calculate the probability of infection with Campylobacter per refill
+# Inputs
+#   exposure_campy: a 21 x nMC dataframe with each cell containing the number of campylobacter consumed per refill
+#                   see chunk "calc_exposure" for details
+# Outputs
+#   Pinf_campy: a 21 x nMC with each cell containing the Pinf with campylobacter per refill
+
+Pinf_c = function(exposure_campy, plotsdisp) {
+    
+    # Define Pinf parameters
+    alpha = 0.145
+    N50 = 890
+    beta = 7.59
+    
+    # Calculate Pinf_campy
+    Pinf_campy = 1 - (1+(exposure_campy*((2^(1/alpha) - 1)/N50)))^(-1*alpha)
+    
+    # Plot lucky #13
+        if (plotsdisp == TRUE) {
+            plot(density(Pinf_campy$V13))
+        }
+    # Return output
+    return(Pinf_campy)
+}
+
+# Check it works
+Pinf_campy = Pinf_c(exposure_campy = exposure_campy, plotsdisp = T)
+
+## Giardia ##
+
+# Rose et al (1991) is used by Murphy (2016) and recommended by WHO (2016)
+# Exponential calculation with r = 0.0199
+
+# Define function to calculate the probability of infection with Giardia per refill
+# Inputs
+#   exposure_giardia: a 21 x nMC dataframe with each cell containing the number of giardia consumed per refill
+#                   see chunk "calc_exposure" for details
+# Outputs
+#   Pinf_giardia: a 21 x nMC with each cell containing the Pinf with giardia per refill  
+
+Pinf_g = function(exposure_giardia, plotsdisp) {
+    
+    # Define Pinf parameters
+    r = 0.0199
+    
+    # Calculate Pinf
+    Pinf_giardia = 1-exp(-1*r*exposure_giardia)
+    
+    # Plot lucky #13
+        if (plotsdisp == TRUE) {
+            plot(density(Pinf_giardia$V13))
+        }
+    # Return output
+    return(Pinf_giardia)
+}
+
+# Check it works
+Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
+```
+
+
+## Calculate total P(inf) for the 7-day trip
+```{r calc_Pinf_trip}
+
+# Formula -->  Pinf_trip = 1 - [(1-Pinf, refill 1)*(1-Pinf, refill 2)...*(1-Pinf, refill 21)]
+
+Pinf_trip = function(Pinf, plotsdisp) {
+    Pinf_oneminus = 1-Pinf
+    Pinf_trip = Pinf_oneminus %>%
+        mutate(prod = Reduce(`*`, .))
+    Pinf_trip = Pinf_trip$prod
+    Pinf_trip = 1-Pinf_trip
+    
+    if (plotsdisp == TRUE) {
+        summ_Pinftrip = summstats(Pinf_trip)  
+        print(summ_Pinftrip)
+        plot(density(Pinf_trip))  
+        plot(ecdf(Pinf_trip))
+    }
+    
+    return(Pinf_trip)
+}
+
+Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = plotsdisp)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = plotsdisp)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+
+```
 
 
