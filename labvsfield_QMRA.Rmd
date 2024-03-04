@@ -188,7 +188,7 @@ LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
 
 ```
 
-## Draw for drinking water consumption in each "DW event"
+## Draw for drinking water consumption in each "DW event" (Refill)
 ```{r draw_DW_consumption}
 
 # Based on curve fitting of survey data, we can assume that reported DW consumed in a day follows a truncated normal distribution
@@ -425,7 +425,7 @@ Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability
 ```
 
 
-## Calculate P(ill) for entire trip
+## DELETE Calculate P(ill) for entire trip
 ```{r calc_Pill_trip}
 
 
@@ -433,7 +433,7 @@ Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability
 
 # Pill = Pinf*Pillinf
 # Use Pillinf from Murphy (2016): a uniform distribution (originally from USEPA, 2010)
-# Campy has min = 0.1, max = 0.6 
+# Campy has min = 0.1, max = 0.6
 # Giardia has min = 0.2, max = 0.7
 
 # Inputs
@@ -443,26 +443,64 @@ Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability
 # Outputs
 #   Pill_trip: the overall probability of having a symptomatic illness from the 7-day backpacking trip
 
-Pill_trip = function(nMC, Pinf_trip, min, max, plotsdisp) {
-    
-    # MC draws 
+# Pill_trip = function(nMC, Pinf_trip, min, max, plotsdisp) {
+# 
+#     # MC draws
+#     Pillinf = runif(nMC, min = min, max = max) # Probability of illness given infection
+#     Pill_trip = Pinf_trip * Pillinf # Probability of illness given the probability of infection
+# 
+#     # Display
+#     if (plotsdisp == TRUE) {
+#         plot(density(Pill_trip))
+#     }
+# 
+#     # Output
+#     return(Pill_trip)
+# 
+# 
+# }
+# 
+# # Try function
+# Pill_campy_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_campy_trip, min = 0.1, max = 0.6 , plotsdisp = T)
+# Pill_giardia_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_giardia_trip, min = 0.2, max = 0.7, plotsdisp = T)
+```
+
+```{r calc_Pill_given_Pinf}
+
+# Define function to populate a dataframe with the probability of illness given infection, Pillinf
+# Pillinf is a decimal (i.e., % chance), from 0.1 to 0.6 for Campy and 0.2 to 0.7 for Giardia
+
+# Pill = Pinf*Pillinf
+# Use Pillinf from Murphy (2016): a uniform distribution (originally from USEPA, 2010)
+# Campy has min = 0.1, max = 0.6
+# Giardia has min = 0.2, max = 0.7
+
+# Inputs
+#   nMC: the number of monte carlo draws to carry out
+#   min: the mimimum of the uniform distribution of Pillinf
+#   max: the maximum of the uniform distribution of Pillinf
+# Outputs
+#   Pillinf: the probability of having a symptomatic illness given Pinf
+#   This will be used in the DALY calculation
+
+
+
+Pill_given_Pinf = function(nMC, min, max, plotsdisp) {
     Pillinf = runif(nMC, min = min, max = max) # Probability of illness given infection
-    Pill_trip = Pinf_trip * Pillinf # Probability of illness given the probability of infection
-    
     # Display
     if (plotsdisp == TRUE) {
-        plot(density(Pill_trip))  
+        plot(density(Pillinf))  
     }
-    
-    # Output
-    return(Pill_trip)
-    
-    
+    return(Pillinf)
 }
 
-# Try function
-Pill_campy_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_campy_trip, min = 0.1, max = 0.6 , plotsdisp = T)
-Pill_giardia_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_giardia_trip, min = 0.2, max = 0.7, plotsdisp = T)
+## Try the function out
+# Campy
+Pill_given_Pinf_campy = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6 , plotsdisp = T)
+Pill_trip_campy = Pinf_campy_trip * Pill_given_Pinf_campy 
+# Giardia
+Pill_given_Pinf_giardia = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7 , plotsdisp = T)
+Pill_trip_giardia = Pinf_giardia_trip * Pill_given_Pinf_giardia
 ```
 
 
@@ -511,9 +549,117 @@ S = 1
 n_campingtrips = 1
 
 # Use functions
-DALY_campy = calcDALYs(Pill_trip = Pill_campy_trip, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
-DALY_giardia = calcDALYs(Pill_trip = Pill_giardia_trip, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+DALY_campy = calcDALYs(Pill_trip = Pill_trip_campy, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
 
 ```
+
+
+## Calculate endpoints given MC drawn inputs
+```{r calc_endpoints}
+
+
+# Define function to calculate the QMRA endpoints (dose, Pinf, DALYs)
+
+# Inputs:
+# LRV and microbe (campy or giardia)
+# MC draws: WQ conc, DW vol, Pillgiven inf
+# Other point values: S, n_campingtrips, DW_campy, DW_giardia
+
+
+calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
+                          DW_conc, DWvol, Pillinf,      # 21 x nMC dataframes populated via MC draws
+                          LRV, microbe) {                       # Point values for microbe
+    
+    # Populate LRV matrix
+    LRVmx = FUNmakeLRVmx(LRV = LRV, nrows = nMC, ncols = 21)
+    
+    
+    # Calculate dose (endpoint #1)
+    #   a: Calculate dose per refill
+    exposure = calc_exposure(LRVs = LRVmx, raworgconc = DW_conc, DWvol = DWvol, plotsdisp = F) # Units of organisms/L
+    #   b: Calculate total dose over the 7-day trip
+    tripexposure = calc_tripexposure(exposure = exposure, plotsdisp = F)  # Units of total organisms drunk per trip
+    
+    
+    # Calculate Pinf (endpoint #2)
+    #   a: Use dose-response calculation for each refill
+    if(microbe == "campy"){  
+        # Campylobacter dose-response
+        Pinf = Pinf_c(exposure = exposure, plotsdisp = F)
+        
+    } else {
+        # Giardia dose-response
+        Pinf = Pinf_g(exposure = exposure, plotsdisp = F)
+    }
+    #   b: Calculate the overall Pinf for the trip
+    Pinf_trip = Pinf_trip(Pinf = Pinf, plotsdisp = F)
+    
+    
+    # Calculate DALYs per trip (endpoint #3)
+    #    a: Calculate the Pill, using Pillinf
+    Pill_trip = Pinf_trip * Pillinf
+    #    b: Calculate DALYs (units of YLL)
+    DALY_trip = calcDALYs(Pill_trip = Pill_trip, 
+                          S = S, 
+                          DW = DALY_weight, 
+                          n_campingtrips = n_campingtrips, 
+                          plotsdisp = T)
+    
+    
+    # Wrangle data
+    endpoints = data_frame(tripexposure, Pinf_trip, DALY_trip) %>%
+        rename(
+            endpoint_exposure = tripexposure, 
+            endpoint_Pinf = Pinf_trip, 
+            endpoint_DALY = DALY_trip
+        )
+
+    
+    # Return output
+    return(endpoints)
+    
+}
+
+# Try the function
+endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_weight = DALY_campy, nMC = nMC,
+                                 DW_conc = rawcampyconc, DWvol = DWvol, Pillinf = Pill_given_Pinf_campy, 
+                                 LRV = 4, microbe = "campy")
+
+```
+
+
+
+# Part II:  Put all the functions together to do the QMRA
+```{r function to do one QMRA for lab vs field for one row of LRVs_forsummary sheet}
+
+#### Do QMRA to compare lab vs field health risks 
+# This function will be used in the next chunk in a for loop
+
+# Inputs
+#   nMC: the number of monte carlo draws to carry out
+#   LRV_Ecoli_lab: point-value LRV for E. coli reductions in the lab (or manufacturer claim)
+#   LRV_yeast_lab: point-value LRV for yeast reductions in the lab (or manufacturer claim)
+#   LRV_Ecoli_field: point-value LRV for E. coli reductions in the field (obtained in 2021 field study)
+#   LRV_yeast_field: point-value LRV for yeast reductions in the field (obtained in 2021 field study)
+# Outputs
+#   output: XXX To fill in
+
+# Define values defined for our QMRA
+S = 1
+n_campingtrips = 1
+DW_campy = 4.6/1000 # Units of DALY per illness case --> From WHO (2016), used in Bivins (2019)
+DW_giardia = 1.7/1000   # Units of DALY per illness case --> From Health Canada (2012)
+
+
+doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field) {
+
+    
+}
+
+```
+
+
+
 
 
