@@ -24,6 +24,14 @@ nMC = 100
 ```
 
 
+```{r load field LRV data, include=FALSE}
+
+# Load in spreadsheet of LRVs from fieldwork, with corresponding manufacturer claims if available
+
+
+
+```
+
 
 # Part I:  define MC draw functions for QMRA 
 ## Draw for pathogen concentration in the raw water, for each "DW event"
@@ -425,46 +433,6 @@ Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability
 ```
 
 
-## DELETE Calculate P(ill) for entire trip
-```{r calc_Pill_trip}
-
-
-# Define function to calculate the probability of illness given infection
-
-# Pill = Pinf*Pillinf
-# Use Pillinf from Murphy (2016): a uniform distribution (originally from USEPA, 2010)
-# Campy has min = 0.1, max = 0.6
-# Giardia has min = 0.2, max = 0.7
-
-# Inputs
-#   nMC: the number of monte carlo draws to carry out
-#   min: the mimimum of the uniform distribution of Pillinf
-#   max: the maximum of the uniform distribution of Pillinf
-# Outputs
-#   Pill_trip: the overall probability of having a symptomatic illness from the 7-day backpacking trip
-
-# Pill_trip = function(nMC, Pinf_trip, min, max, plotsdisp) {
-# 
-#     # MC draws
-#     Pillinf = runif(nMC, min = min, max = max) # Probability of illness given infection
-#     Pill_trip = Pinf_trip * Pillinf # Probability of illness given the probability of infection
-# 
-#     # Display
-#     if (plotsdisp == TRUE) {
-#         plot(density(Pill_trip))
-#     }
-# 
-#     # Output
-#     return(Pill_trip)
-# 
-# 
-# }
-# 
-# # Try function
-# Pill_campy_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_campy_trip, min = 0.1, max = 0.6 , plotsdisp = T)
-# Pill_giardia_trip = Pill_trip(nMC = nMC, Pinf_trip = Pinf_giardia_trip, min = 0.2, max = 0.7, plotsdisp = T)
-```
-
 ```{r calc_Pill_given_Pinf}
 
 # Define function to populate a dataframe with the probability of illness given infection, Pillinf
@@ -604,15 +572,29 @@ calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
                           S = S, 
                           DW = DALY_weight, 
                           n_campingtrips = n_campingtrips, 
-                          plotsdisp = T)
+                          plotsdisp = F)
+    
+    
+    ## Calculation for later correlations analysis
+    # Total microbes in raw water over the trip
+    DW_conc = DW_conc %>%
+        mutate(sum = rowSums(.[1:21]))
+    DW_raw_trip = DW_conc$sum
+    # Total DW drunk over the trip
+    DWvol = DWvol %>%
+        mutate(sum = rowSums(.[1:21]))
+    DWvol_trip = DWvol$sum
     
     
     # Wrangle data
-    endpoints = data_frame(tripexposure, Pinf_trip, DALY_trip) %>%
+    endpoints = data_frame(tripexposure, Pinf_trip, DALY_trip, # endpoints
+                           DW_raw_trip, DWvol_trip) %>%                   # For correlations
         rename(
             endpoint_exposure = tripexposure, 
             endpoint_Pinf = Pinf_trip, 
-            endpoint_DALY = DALY_trip
+            endpoint_DALY = DALY_trip,
+            process_rawWQtrip = DW_raw_trip,
+            process_DWvoltrip = DWvol_trip
         )
 
     
@@ -631,7 +613,8 @@ endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_we
 
 
 # Part II:  Put all the functions together to do the QMRA
-```{r function to do one QMRA for lab vs field for one row of LRVs_forsummary sheet}
+## Do one QMRA for a manuf-field LRV pair
+```{r do one QMRA for one lab vs field pair}
 
 #### Do QMRA to compare lab vs field health risks 
 # This function will be used in the next chunk in a for loop
@@ -645,21 +628,90 @@ endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_we
 # Outputs
 #   output: XXX To fill in
 
-# Define values defined for our QMRA
-S = 1
-n_campingtrips = 1
-DW_campy = 4.6/1000 # Units of DALY per illness case --> From WHO (2016), used in Bivins (2019)
-DW_giardia = 1.7/1000   # Units of DALY per illness case --> From Health Canada (2012)
 
 
-doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field) {
+doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
+    
+    
+    ## Do MC draws: WQ_conc, DW_vol, Pillinf
+    # DW_conc, Pillinf, depend on the choice of microbe
+    # Draw for DWvol
+    DWvol = drawDW(nMC = nMC, plotsdisp = F)
+    
+    # Draw for WQ_conc and Pillinf
+    if(microbe == "campy"){  
+        # Campylobacter 
+        WQ_conc = draw_campy(nMC = nMC, plotsdisp = F)
+        Pillinf = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6, plotsdisp = F) # Murphy (2016), originally from USEPA (2010)
+        DALYweight = 4.6/1000 # Units of DALY per illness case --> From WHO (2016), used in Bivins (2019)
+        
+    } else {
+        # Giardia dose-response
+        WQ_conc = draw_giardia(nMC = nMC, plotsdisp = F)
+        Pillinf = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7, plotsdisp = F) # Murphy (2016), originally from USEPA (2010)
+        DALYweight = 1.7/1000   # Units of DALY per illness case --> From Health Canada (2012)
+    }
+    
+    
+    ## Calculate endpoints, using LRV_manuf and LRV_field
+    # Using LRV_manuf
+    endpoints_field = calc_endpoints(nMC = nMC, 
+                                     S = 1, 
+                                     n_campingtrips = 1, 
+                                     DALY_weight = DALYweight, 
+                                     DWvol = DWvol,
+                                     DW_conc = WQ_conc, 
+                                     Pillinf = Pillinf,
+                                     LRV = LRV_field, 
+                                     microbe = microbe)
+    endpoints_manuf = calc_endpoints(nMC = nMC, 
+                                     S = 1, 
+                                     n_campingtrips = 1, 
+                                     DALY_weight = DALYweight, 
+                                     DWvol = DWvol,
+                                     DW_conc = WQ_conc, 
+                                     Pillinf = Pillinf,
+                                     LRV = LRV_manuf, 
+                                     microbe = microbe)
+    
 
     
+    ## Wrangle data
+    
+    # add setting names ("field" or "manuf") to both endpoints tables
+    # Also Pillinf so that we can do correlations analysis later
+    # And the input LRV (field or manuf)
+    endpoints_field = endpoints_field %>%
+        mutate(info_setting = "field", .before = endpoint_exposure) %>%
+        mutate(process_Pillinf = Pillinf) %>%
+        mutate(input_LRV = LRV_field, .after = info_setting)
+    endpoints_manuf = endpoints_manuf %>%
+        mutate(info_setting = "manuf", .before = endpoint_exposure) %>%
+        mutate(process_Pillinf = Pillinf) %>%
+        mutate(input_LRV = LRV_field, .after = info_setting)
+    
+    # Use rbind to make one big dataframe
+    endpoints = rbind(endpoints_field, endpoints_manuf)
+    
+    # Output
+    oneQMRA = endpoints
+    return(oneQMRA)
+    
 }
+
+tryoneQMRA = doQMRA_labvfield(nMC = nMC, 
+                              LRV_manuf = 4, LRV_field = 2, 
+                              microbe = "campy")
 
 ```
 
 
+## Do one QMRA for a manuf-field LRV pair
+```{r cycle through all the manuf-field LRV pairs - this is the overall QMRA}
 
+
+
+
+```
 
 
