@@ -106,7 +106,7 @@ return(rawcampyconc)
 }
 
 # Check that it works
-rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
+# rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
 
 ```
 
@@ -171,7 +171,7 @@ draw_giardia = function(nMC, plotsdisp) {
 }
 
 # Check that it works
-rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
+# rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
 
 ```
 
@@ -203,8 +203,8 @@ FUNmakeLRVmx = function(LRV, nrows, ncols){
 
 
 #Check using the first entry of the LRVs_forsummary input data table
-LRVs_Ecoli = FUNmakeLRVmx(LRV = 4.19, nrows = nMC, ncols = 21)
-LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
+# LRVs_Ecoli = FUNmakeLRVmx(LRV = 4.19, nrows = nMC, ncols = 21)
+# LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
 
 ```
 
@@ -256,7 +256,7 @@ drawDW = function(nMC, plotsdisp){
 }
 
 # Check that it works
-DWvol = drawDW(nMC = nMC, plotsdisp = T)
+# DWvol = drawDW(nMC = nMC, plotsdisp = T)
 
 ```
 
@@ -297,8 +297,8 @@ calc_exposure = function(LRVs, raworgconc, DWvol, plotsdisp) {
 }
 
 # Check it works
-exposure_campy = calc_exposure(LRVs = LRVs_Ecoli, raworgconc = rawcampyconc, DWvol = DWvol, plotsdisp = T)  # Units of CFU campylobacter drunk in the refill event
-exposure_giardia = calc_exposure(LRVs = LRVs_yeast, raworgconc = rawgiardiaconc, DWvol = DWvol, plotsdisp = T)  # Units of Giardia oocysts drunk in the refill event
+# exposure_campy = calc_exposure(LRVs = LRVs_Ecoli, raworgconc = rawcampyconc, DWvol = DWvol, plotsdisp = T)  # Units of CFU campylobacter drunk in the refill event
+# exposure_giardia = calc_exposure(LRVs = LRVs_yeast, raworgconc = rawgiardiaconc, DWvol = DWvol, plotsdisp = T)  # Units of Giardia oocysts drunk in the refill event
 
 
 ## Step 2: Sum across all 21 DW refills --> this will be the total pathogens consumed in a 7-day backpacking trip
@@ -330,8 +330,8 @@ calc_tripexposure = function(exposure, plotsdisp) {
 }
 
 # Check it works
-exposure_campy_trip = calc_tripexposure(exposure = exposure_campy, plotsdisp = T)  # Units of total CFU campylobacter drunk on a 7-day backpacking trip
-exposure_giardia_trip = calc_tripexposure(exposure = exposure_giardia, plotsdisp = T)  # Units of Giardia oocysts drunk on a 7-day backpacking trip
+# exposure_campy_trip = calc_tripexposure(exposure = exposure_campy, plotsdisp = T)  # Units of total CFU campylobacter drunk on a 7-day backpacking trip
+# exposure_giardia_trip = calc_tripexposure(exposure = exposure_giardia, plotsdisp = T)  # Units of Giardia oocysts drunk on a 7-day backpacking trip
 
 ```
 
@@ -372,7 +372,7 @@ Pinf_c = function(exposure_campy, plotsdisp) {
 }
 
 # Check it works
-Pinf_campy = Pinf_c(exposure_campy = exposure_campy, plotsdisp = T)
+# Pinf_campy = Pinf_c(exposure_campy = exposure_campy, plotsdisp = T)
 
 ## Giardia ##
 
@@ -403,7 +403,7 @@ Pinf_g = function(exposure_giardia, plotsdisp) {
 }
 
 # Check it works
-Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
+# Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
 ```
 
 
@@ -439,8 +439,8 @@ Pinf_trip = function(Pinf, plotsdisp) {
 }
 
 # Check it works
-Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
-Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+# Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+# Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
 
 ```
 
@@ -476,11 +476,11 @@ Pill_given_Pinf = function(nMC, min, max, plotsdisp) {
 
 ## Try the function out
 # Campy
-Pill_given_Pinf_campy = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6 , plotsdisp = T)
-Pill_trip_campy = Pinf_campy_trip * Pill_given_Pinf_campy 
+# Pill_given_Pinf_campy = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6 , plotsdisp = T)
+# Pill_trip_campy = Pinf_campy_trip * Pill_given_Pinf_campy 
 # Giardia
-Pill_given_Pinf_giardia = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7 , plotsdisp = T)
-Pill_trip_giardia = Pinf_giardia_trip * Pill_given_Pinf_giardia
+# Pill_given_Pinf_giardia = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7 , plotsdisp = T)
+# Pill_trip_giardia = Pinf_giardia_trip * Pill_given_Pinf_giardia
 ```
 
 
@@ -520,17 +520,17 @@ calcDALYs = function(Pill_trip, S, DW, n_campingtrips, plotsdisp) {
 
 # Initialize values
 # DW_campy = 4.6 per 1000 cases --> From WHO (2016), used in Bivins (2019)
-DW_campy = 4.6/1000 # Units of DALY per illness case
+# DW_campy = 4.6/1000 # Units of DALY per illness case
 # DW_giardia = 1.7 per 1000 cases --> From Health Canada (2012)
-DW_giardia = 1.7/1000   # Units of DALY per illness case
+# DW_giardia = 1.7/1000   # Units of DALY per illness case
 # 100% susceptibility
-S = 1
+# S = 1
 # If n_campingtrips = 1, then the DALYs are in units of DALY per person per camping trip
-n_campingtrips = 1
+# n_campingtrips = 1
 
 # Use functions
-DALY_campy = calcDALYs(Pill_trip = Pill_trip_campy, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
-DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+# DALY_campy = calcDALYs(Pill_trip = Pill_trip_campy, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+# DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
 
 ```
 
@@ -541,10 +541,24 @@ DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, 
 
 # Define function to calculate the QMRA endpoints (dose, Pinf, DALYs)
 
-# Inputs:
+## Inputs:
 # LRV and microbe (campy or giardia)
-# MC draws: WQ conc, DW vol, Pillgiven inf
-# Other point values: S, n_campingtrips, DW_campy, DW_giardia
+# MC draws: WQ conc = raw water pathogen concentration
+#           DW vol = water vol drunk per refill
+#           Pillgiven inf = probability of illnes given infection with either campy or giardia
+#           all 21 x nMC dataframes with MC draws
+# Other point values: S = susceptability fraction (100% for campy and giardia)
+#                     n_campingtrips = number of camping trips (1 for our study)
+#                     DALY_weight = DALY weighting per illness
+#                     nMC = number of monte carlo draws    
+
+## Outputs:
+# endpoints dataframe, which is 5 x nMC, containing:
+# endpoint_exposure = endpoint #1, total pathogen ingestion over the backpacking trip 
+# endpoint_Pinf = endpoint #2, probability of infection from the 7-day backpacking trip  
+# endpoint_DALY = endpoint #3, DALYs from the 7-day trip
+# process_rawWQtrip = for sensitivity analysis, total pathogens in raw water over the 7-day backpacking trip
+# process_DWvoltrip = for sensitivity analysis, total water volume drunk over the 7-day trip
 
 
 calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
@@ -599,8 +613,8 @@ calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
     
     
     # Wrangle data
-    endpoints = data_frame(tripexposure, Pinf_trip, DALY_trip, # endpoints
-                           DW_raw_trip, DWvol_trip) %>%                   # For correlations
+    endpoints = tibble(tripexposure, Pinf_trip, DALY_trip, # endpoints
+                       DW_raw_trip, DWvol_trip) %>%        # For correlations
         rename(
             endpoint_exposure = tripexposure, 
             endpoint_Pinf = Pinf_trip, 
@@ -616,9 +630,9 @@ calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
 }
 
 # Try the function
-endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_weight = DALY_campy, nMC = nMC,
-                                 DW_conc = rawcampyconc, DWvol = DWvol, Pillinf = Pill_given_Pinf_campy, 
-                                 LRV = 4, microbe = "campy")
+# try_endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_weight = DALY_campy, nMC = nMC,
+#                                  DW_conc = rawcampyconc, DWvol = DWvol, Pillinf = Pill_given_Pinf_campy,
+#                                  LRV = 4, microbe = "campy")
 
 ```
 
@@ -628,18 +642,30 @@ endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_we
 ## Do one QMRA for a manuf-field LRV pair
 ```{r do one QMRA for one lab vs field pair}
 
-#### Do QMRA to compare lab vs field health risks 
+#### Define function to compare lab vs field QMRA for a given lab-field pair of data for a given device
 # This function will be used in the next chunk in a for loop
 
-# Inputs
+# Inputs:
 #   nMC: the number of monte carlo draws to carry out
-#   LRV_Ecoli_lab: point-value LRV for E. coli reductions in the lab (or manufacturer claim)
-#   LRV_yeast_lab: point-value LRV for yeast reductions in the lab (or manufacturer claim)
-#   LRV_Ecoli_field: point-value LRV for E. coli reductions in the field (obtained in 2021 field study)
-#   LRV_yeast_field: point-value LRV for yeast reductions in the field (obtained in 2021 field study)
-# Outputs
-#   output: XXX To fill in
+#   LRV_manuf: point-value LRV claimed by manufacturers
+#   LRV_field: point-value LRV obtained in 2021 field study
+#   microbe: either "campy" or "giardia"
 
+# Outputs
+# the oneQMRA dataframe, which is 13 x (2 x nMC), containing:
+# info_surveynum = which survey the data pair comes from (should be one campy and one giardia per survey)
+# info_pairnum = which lab-field data pair the data belong to
+# info_treatmenttype = "chemical", "filter" or "UV"
+# info_treatmentname = which treatment device was used
+# info_organism = "campy" or "giardia'
+# info_setting = "manuf" or "field"
+# input_LRV = the point-value LRV 
+# process_DWvoltrip = explained in above chunk
+# process_rawWQtrip = explained in above chunk
+# process_Pillinf = probability of illness given infection
+# endpoint_exposure = explained in above chunk
+# endpoint_Pinf = explained in above chunk
+# endpoint_DALY = explained in above chunks
 
 
 doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
@@ -725,7 +751,7 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
 
 # Initialize
 nMC = 10
-allQMRA = data.frame()
+allQMRA = tibble()
 
 # Do for loop
 for(i in 1:nrow(rawLRVdata)) {
@@ -777,6 +803,63 @@ allQMRA = allQMRA %>%
                   )
 
 
+# pivot longer (needed for making figures below, and correlations analysis)
+allQMRA_long = allQMRA %>%
+    pivot_longer(
+            cols = starts_with("endpoint"),
+            names_to = "endpoint_name",
+            values_to = "endpoint_value",
+            names_prefix = "endpoint_"
+    ) 
+
+
+# For later: pivot longer for sensitivity analysis
+# #     pivot_longer(
+#         cols = starts_with("process"),
+#         names_to = "process_name", 
+#         values_to = "process_value",
+#         names_prefix = "process_"
+#     ) %>%
+
 ```
 
 
+## Figures for publication
+# Campylobacter figure
+```{r campy figure, fig.width= 8, fig.height=11}
+
+## Wrangle data more, to figure out the difference in lab vs field endpoints
+allQMRA_graph = allQMRA_long %>%
+    pivot_wider(
+        names_from = info_setting,
+        values_from = endpoint_value
+    ) %>%
+    rename(
+        endpoint_value_field = field,
+        endpoint_value_manuf = manuf
+    ) %>%
+    dplyr::select(                      # Select the relevant columns
+                  info_surveynum,
+                  info_pairnum,
+                  info_treatmenttype,
+                  info_treatmentname,
+                  info_organism,
+
+                  input_LRV,
+                  
+                  endpoint_name,
+                  endpoint_value_field,
+                  endpoint_value_manuf,
+                  ) 
+    
+
+## Subtract endpoints to find the difference
+# Take endpoint_field - endpoint_manuf
+# So that if LRV_manuf > LRV_field, then the difference would be positive
+allQMRA_graph = allQMRA_graph %>%
+    mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf)
+
+## Graph for campy
+# 
+
+```
