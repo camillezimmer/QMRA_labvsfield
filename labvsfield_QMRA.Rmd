@@ -26,9 +26,21 @@ nMC = 100
 
 ```{r load field LRV data, include=FALSE}
 
-# Load in spreadsheet of LRVs from fieldwork, with corresponding manufacturer claims if available
+## Load in spreadsheet of LRVs from fieldwork, with corresponding manufacturer claims if available
+# This df is used below in the chunk "cycle through all the manuf-field LRV pairs"
+rawLRVdata = read_excel("inputdata/LRVs_forQMRA.xlsx", skip = 5)
 
-
+## Data wrangling
+# Select relevant columns and drop rows with no manufacturer claim
+rawLRVdata = rawLRVdata %>%
+    dplyr::select(row_num, 
+                  treatment_type,
+                  treatment_name,
+                  organism,
+                  LRV_field,
+                  LRV_manuf
+                  ) %>%
+    drop_na()
 
 ```
 
@@ -699,9 +711,10 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
     
 }
 
-tryoneQMRA = doQMRA_labvfield(nMC = nMC, 
-                              LRV_manuf = 4, LRV_field = 2, 
-                              microbe = "campy")
+# Uncomment to try one QMRA
+# tryoneQMRA = doQMRA_labvfield(nMC = nMC, 
+#                               LRV_manuf = 4, LRV_field = 2, 
+#                               microbe = "campy")
 
 ```
 
@@ -710,6 +723,58 @@ tryoneQMRA = doQMRA_labvfield(nMC = nMC,
 ```{r cycle through all the manuf-field LRV pairs - this is the overall QMRA}
 
 
+# Initialize
+nMC = 10
+allQMRA = data.frame()
+
+# Do for loop
+for(i in 1:nrow(rawLRVdata)) {
+    
+    # Check
+    print(i)
+    
+    # Initialize row i
+    row <- rawLRVdata[i,]
+    
+    # Call function to do QMRA
+    oneQMRA = doQMRA_labvfield(nMC = nMC,
+                               LRV_manuf = row$LRV_manuf, 
+                               LRV_field = row$LRV_field,
+                               microbe = row$organism
+                              )
+    
+    # Wrangle data
+    oneQMRA = oneQMRA %>%
+        mutate(info_surveynum = row$row_num) %>%  # Indicates which survey the data belong to, so that yeast/ecoli could be paired
+        mutate(info_pairnum = i) %>%
+        mutate(info_treatmenttype = row$treatment_type) %>%
+        mutate(info_treatmentname = row$treatment_name) %>%
+        mutate(info_organism = row$organism)
+        
+    
+    # Output
+    allQMRA = rbind(allQMRA, oneQMRA)
+}
+
+# Reorganize column order
+allQMRA = allQMRA %>%
+    dplyr::select(info_surveynum,
+                  info_pairnum,
+                  info_treatmenttype,
+                  info_treatmentname,
+                  info_organism,
+                  info_setting,
+                  
+                  input_LRV,
+                  
+                  process_DWvoltrip,
+                  process_rawWQtrip,
+                  process_Pillinf,
+                  
+                  endpoint_exposure,
+                  endpoint_Pinf,
+                  endpoint_DALY
+                  )
 
 
 ```
