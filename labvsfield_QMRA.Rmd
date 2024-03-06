@@ -12,11 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list = ls())
 
 #Load libraries
-library(tidyverse)
-library(fitdistrplus)
-library(readxl)
-library(mc2d)
-library(truncnorm)
+library(tidyverse)       # For tidy datasets and graphing 
+library(fitdistrplus)    # For fitting distributions
+library(readxl)          # For reading excel files
+library(writexl)         # For writing excel files
+library(mc2d)            # For monte carlo draws
+library(truncnorm)       # To draw from a truncated normal distribution
+library(gghighlight)     # For graphing, to highlight one curve among the others
+library(patchwork)       # For graphing, to stitch multiple graphs together
 
 # Define number of Monte Carlo observations we want per draw (currently 100 for the first chunks, will be redefined further down)
 nMC = 100
@@ -106,7 +109,7 @@ return(rawcampyconc)
 }
 
 # Check that it works
-# rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
+rawcampyconc = draw_campy(nMC = nMC, plotsdisp = T) # Units of CFU/L
 
 ```
 
@@ -171,7 +174,7 @@ draw_giardia = function(nMC, plotsdisp) {
 }
 
 # Check that it works
-# rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
+rawgiardiaconc = draw_giardia(nMC = nMC, plotsdisp = T) # Units of oocysts/1 L
 
 ```
 
@@ -203,8 +206,8 @@ FUNmakeLRVmx = function(LRV, nrows, ncols){
 
 
 #Check using the first entry of the LRVs_forsummary input data table
-# LRVs_Ecoli = FUNmakeLRVmx(LRV = 4.19, nrows = nMC, ncols = 21)
-# LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
+LRVs_Ecoli = FUNmakeLRVmx(LRV = 4.19, nrows = nMC, ncols = 21)
+LRVs_yeast = FUNmakeLRVmx(LRV = 3.73, nrows = nMC, ncols = 21)
 
 ```
 
@@ -256,7 +259,7 @@ drawDW = function(nMC, plotsdisp){
 }
 
 # Check that it works
-# DWvol = drawDW(nMC = nMC, plotsdisp = T)
+DWvol = drawDW(nMC = nMC, plotsdisp = T)
 
 ```
 
@@ -297,8 +300,8 @@ calc_exposure = function(LRVs, raworgconc, DWvol, plotsdisp) {
 }
 
 # Check it works
-# exposure_campy = calc_exposure(LRVs = LRVs_Ecoli, raworgconc = rawcampyconc, DWvol = DWvol, plotsdisp = T)  # Units of CFU campylobacter drunk in the refill event
-# exposure_giardia = calc_exposure(LRVs = LRVs_yeast, raworgconc = rawgiardiaconc, DWvol = DWvol, plotsdisp = T)  # Units of Giardia oocysts drunk in the refill event
+exposure_campy = calc_exposure(LRVs = LRVs_Ecoli, raworgconc = rawcampyconc, DWvol = DWvol, plotsdisp = T)  # Units of CFU campylobacter drunk in the refill event
+exposure_giardia = calc_exposure(LRVs = LRVs_yeast, raworgconc = rawgiardiaconc, DWvol = DWvol, plotsdisp = T)  # Units of Giardia oocysts drunk in the refill event
 
 
 ## Step 2: Sum across all 21 DW refills --> this will be the total pathogens consumed in a 7-day backpacking trip
@@ -309,9 +312,6 @@ calc_exposure = function(LRVs, raworgconc, DWvol, plotsdisp) {
 #   exposure: the output from the function calc_exposure, 21 x nMC matrix with each cell as the number of pathogens consumed per refills
 # Outputs
 #   exposure_trip: the total number of pathogens consumed in a 7-day backpacking trip (units of # of pathogens)
-
-
-## NOTE: perhaps call the previous two functions within this one?? 
 
 calc_tripexposure = function(exposure, plotsdisp) {
     
@@ -330,8 +330,8 @@ calc_tripexposure = function(exposure, plotsdisp) {
 }
 
 # Check it works
-# exposure_campy_trip = calc_tripexposure(exposure = exposure_campy, plotsdisp = T)  # Units of total CFU campylobacter drunk on a 7-day backpacking trip
-# exposure_giardia_trip = calc_tripexposure(exposure = exposure_giardia, plotsdisp = T)  # Units of Giardia oocysts drunk on a 7-day backpacking trip
+exposure_campy_trip = calc_tripexposure(exposure = exposure_campy, plotsdisp = T)  # Units of total CFU campylobacter drunk on a 7-day backpacking trip
+exposure_giardia_trip = calc_tripexposure(exposure = exposure_giardia, plotsdisp = T)  # Units of Giardia oocysts drunk on a 7-day backpacking trip
 
 ```
 
@@ -372,7 +372,7 @@ Pinf_c = function(exposure_campy, plotsdisp) {
 }
 
 # Check it works
-# Pinf_campy = Pinf_c(exposure_campy = exposure_campy, plotsdisp = T)
+Pinf_campy = Pinf_c(exposure_campy = exposure_campy, plotsdisp = T)
 
 ## Giardia ##
 
@@ -403,7 +403,7 @@ Pinf_g = function(exposure_giardia, plotsdisp) {
 }
 
 # Check it works
-# Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
+Pinf_giardia = Pinf_g(exposure_giardia = exposure_giardia, plotsdisp = T)
 ```
 
 
@@ -439,8 +439,8 @@ Pinf_trip = function(Pinf, plotsdisp) {
 }
 
 # Check it works
-# Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
-# Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+Pinf_campy_trip = Pinf_trip(Pinf = Pinf_campy, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
+Pinf_giardia_trip = Pinf_trip(Pinf = Pinf_giardia, plotsdisp = T)  # Probability of infection with Campylobacter for a 7-day backpacking trip
 
 ```
 
@@ -476,11 +476,12 @@ Pill_given_Pinf = function(nMC, min, max, plotsdisp) {
 
 ## Try the function out
 # Campy
-# Pill_given_Pinf_campy = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6 , plotsdisp = T)
-# Pill_trip_campy = Pinf_campy_trip * Pill_given_Pinf_campy 
+Pill_given_Pinf_campy = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6 , plotsdisp = T)
+Pill_trip_campy = Pinf_campy_trip * Pill_given_Pinf_campy
 # Giardia
-# Pill_given_Pinf_giardia = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7 , plotsdisp = T)
-# Pill_trip_giardia = Pinf_giardia_trip * Pill_given_Pinf_giardia
+Pill_given_Pinf_giardia = Pill_given_Pinf(nMC = nMC, min = 0.2, max = 0.7 , plotsdisp = T)
+Pill_trip_giardia = Pinf_giardia_trip * Pill_given_Pinf_giardia
+
 ```
 
 
@@ -517,20 +518,19 @@ calcDALYs = function(Pill_trip, S, DW, n_campingtrips, plotsdisp) {
 
 
 ## Try the function out
-
 # Initialize values
 # DW_campy = 4.6 per 1000 cases --> From WHO (2016), used in Bivins (2019)
-# DW_campy = 4.6/1000 # Units of DALY per illness case
+DW_campy = 4.6/1000 # Units of DALY per illness case
 # DW_giardia = 1.7 per 1000 cases --> From Health Canada (2012)
-# DW_giardia = 1.7/1000   # Units of DALY per illness case
+DW_giardia = 1.7/1000   # Units of DALY per illness case
 # 100% susceptibility
-# S = 1
+S = 1
 # If n_campingtrips = 1, then the DALYs are in units of DALY per person per camping trip
-# n_campingtrips = 1
+n_campingtrips = 1
 
 # Use functions
-# DALY_campy = calcDALYs(Pill_trip = Pill_trip_campy, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
-# DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+DALY_campy = calcDALYs(Pill_trip = Pill_trip_campy, S = S, DW = DW_campy, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
+DALY_giardia = calcDALYs(Pill_trip = Pill_trip_giardia, S = S, DW = DW_giardia, n_campingtrips = n_campingtrips, plotsdisp = T)  # Units of YLL per year of backpackers hiking
 
 ```
 
@@ -578,7 +578,7 @@ calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
     
     # Calculate Pinf (endpoint #2)
     #   a: Use dose-response calculation for each refill
-    if(microbe == "campy"){  
+    if(microbe == "Ecoli"){  
         # Campylobacter dose-response
         Pinf = Pinf_c(exposure = exposure, plotsdisp = F)
         
@@ -630,9 +630,9 @@ calc_endpoints = function(S, n_campingtrips, DALY_weight, nMC,  # Point values
 }
 
 # Try the function
-# try_endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_weight = DALY_campy, nMC = nMC,
-#                                  DW_conc = rawcampyconc, DWvol = DWvol, Pillinf = Pill_given_Pinf_campy,
-#                                  LRV = 4, microbe = "campy")
+try_endpoints_campy = calc_endpoints(S = S, n_campingtrips = n_campingtrips, DALY_weight = DALY_campy, nMC = nMC,
+                                 DW_conc = rawcampyconc, DWvol = DWvol, Pillinf = Pill_given_Pinf_campy,
+                                 LRV = 4, microbe = "Ecoli")
 
 ```
 
@@ -677,7 +677,7 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
     DWvol = drawDW(nMC = nMC, plotsdisp = F)
     
     # Draw for WQ_conc and Pillinf
-    if(microbe == "campy"){  
+    if(microbe == "Ecoli"){  
         # Campylobacter 
         WQ_conc = draw_campy(nMC = nMC, plotsdisp = F)
         Pillinf = Pill_given_Pinf(nMC = nMC, min = 0.1, max = 0.6, plotsdisp = F) # Murphy (2016), originally from USEPA (2010)
@@ -692,7 +692,7 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
     
     
     ## Calculate endpoints, using LRV_manuf and LRV_field
-    # Using LRV_manuf
+    # Using LRV_field
     endpoints_field = calc_endpoints(nMC = nMC, 
                                      S = 1, 
                                      n_campingtrips = 1, 
@@ -702,6 +702,7 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
                                      Pillinf = Pillinf,
                                      LRV = LRV_field, 
                                      microbe = microbe)
+    # USing LRV_manuf
     endpoints_manuf = calc_endpoints(nMC = nMC, 
                                      S = 1, 
                                      n_campingtrips = 1, 
@@ -737,20 +738,20 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
     
 }
 
-# Uncomment to try one QMRA
-# tryoneQMRA = doQMRA_labvfield(nMC = nMC, 
-#                               LRV_manuf = 4, LRV_field = 2, 
-#                               microbe = "campy")
+# Try one QMRA
+tryoneQMRA = doQMRA_labvfield(nMC = nMC,
+                              LRV_manuf = 4, LRV_field = 2,
+                              microbe = "Ecoli")
 
 ```
 
 
-## Do one QMRA for a manuf-field LRV pair
+## Do a for loop for QMRA for all manuf-field LRV pairs
 ```{r cycle through all the manuf-field LRV pairs - this is the overall QMRA}
 
 
 # Initialize
-nMC = 10
+nMC = 1000
 allQMRA = tibble()
 
 # Do for loop
@@ -824,21 +825,21 @@ allQMRA_long = allQMRA %>%
 ```
 
 
-## Figures for publication
-# Campylobacter figure
-```{r campy figure, fig.width= 8, fig.height=11}
+# Figures for publication
+## Data wrangling
+```{r wrangle data for figures}
 
-## Wrangle data more, to figure out the difference in lab vs field endpoints
+### Wrangle data more, to figure out the difference in lab vs field endpoints
 allQMRA_graph = allQMRA_long %>%
-    pivot_wider(
+    pivot_wider(                    # Pivot wider so that manuf - field can be calculated
         names_from = info_setting,
         values_from = endpoint_value
     ) %>%
-    rename(
+    rename(                         # Rename columns to match our naming scheme
         endpoint_value_field = field,
         endpoint_value_manuf = manuf
     ) %>%
-    dplyr::select(                      # Select the relevant columns
+    dplyr::select(                  # Select the relevant columns
                   info_surveynum,
                   info_pairnum,
                   info_treatmenttype,
@@ -852,14 +853,316 @@ allQMRA_graph = allQMRA_long %>%
                   endpoint_value_manuf,
                   ) 
     
-
-## Subtract endpoints to find the difference
+# Subtract endpoints to find the difference
 # Take endpoint_field - endpoint_manuf
 # So that if LRV_manuf > LRV_field, then the difference would be positive
 allQMRA_graph = allQMRA_graph %>%
     mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf)
 
-## Graph for campy
-# 
+
+### Calculate overall means for graphing
+# Get means
+allQMRA_graphmeans = allQMRA_graph %>%
+    group_by(info_organism, info_treatmenttype, endpoint_name) %>%      # Tell R to group means by these variables
+    summarise(
+        n = n(), 
+        endpoint_value_subtract_mean = mean(endpoint_value_subtract)    # Get mean values
+    ) %>%
+    mutate(endpoint_value_subtract_mean_yval = 1)         # Initialize the column for yvalues corresponding to that mean
+
+
+# Get corresponding y-values for those means
+# Do a for loop
+for(i in 1:nrow(allQMRA_graphmeans)) {
+    # Check
+    print(i)
+
+    # Initialize row i
+    row <- allQMRA_graphmeans[i,]
+    
+    # Get corresponding y-value
+    yval = ecdf(
+        filter(allQMRA_graph,
+               info_organism == row$info_organism, 
+               info_treatmenttype == row$info_treatmenttype, 
+               endpoint_name == row$endpoint_name)$endpoint_value_subtract
+    )(row$endpoint_value_subtract_mean)
+
+    # Put into allQMRA_graphmeans dataframe under yvalues
+    allQMRA_graphmeans[i, "endpoint_value_subtract_mean_yval"] = yval
+}
+
+
+### Graph setup 
+# Establish colour palette, from Rcolourbrewer
+brew_11 = c("#A50026",
+            "#D73027",
+            "#F46D43",
+            "#FDAE61",
+            "#FEE090",
+            "#FFFFBF",
+            "#E0F3F8",
+            "#ABD9E9",
+            "#74ADD1",
+            "#4575B4",
+            "#313695")
+brew_3 = c("#A50026", "#FC8D59", "#4575B4")
+fill_3 = c("#DB99A8","#FED1BD","#B5C8E1")
+
+# Make facet label names
+treatment_type_labs = c("a) Chemical disinfection", "b) Filtration", "c) UV disinfection")
+names(treatment_type_labs) = c("chemical", "filter", "UV")
+
+
+```
+
+
+## Campylobacter figure
+```{r campy figure, fig.width= 8, fig.height=11}
+
+
+## Draw graph for exposure
+plot_subtractendp_exposure_c = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "exposure"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "exposure"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.80, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                       limits = c(-10, 10000),
+                                       breaks = c(-10, -1, 0, 1, 10, 100, 1000, 10000),
+                                       minor_breaks = c(-5, -0.5, 0.5, 5, 50, 500, 5000),
+                                       labels = c("-10", "-1", "0",
+                                                  "+1", "+10", "+100", "+1000", "+10000"))+
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Difference in dose", "", "", sep = "")) +
+                            ylab("") +
+    
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "Ecoli"  & endpoint_name == "exposure"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                  strip.text.x = element_text(hjust = 0, vjust = 1, size = 12))
+plot(plot_subtractendp_exposure_c)
+
+
+
+## Draw graph for Pinf
+plot_subtractendp_Pinf_c = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "Pinf"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "Pinf"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.80, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                               breaks = seq(from = -0.5, to = 1, by = 0.5),
+                                               limits = c(-0.5, 1)) +
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Difference in", "probability of infection", sep = "\n")) +
+                            ylab("") +
+    
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "Ecoli"  & endpoint_name == "Pinf"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                  strip.text.x = element_text(colour = "white", hjust = 0, vjust = 1, size = 12)
+                                  # NOTE: strip.text.x being set to white keeps the labels but turns the font white 
+                                  # so that the plot sizing is unchanged but each facet row isn't labelled 3 times 
+                                  # when we get to the patchwork step (below). Delete if you want the text back
+                                  )
+plot(plot_subtractendp_Pinf_c)
+
+
+
+
+## Draw graph for DALYs
+plot_subtractendp_DALY_c = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "DALY"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "DALY"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.80, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                       limits = c(-0.001, 0.002),
+                                       breaks = c(-0.001, 0, 0.001, 0.002),
+                                       minor_breaks = c(-0.0005, 0.0005, 0.0015),
+                                       labels = c("-0.001", "0", "0.001", "0.002")
+                                       ) +
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Difference in DALYs", "", "", sep = "")) +
+                            ylab("") +
+    
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "Ecoli"  & endpoint_name == "DALY"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                strip.text.x = element_text(colour = "white", hjust = 0, vjust = 1, size = 12)
+                                  # NOTE: strip.text.x being set to white keeps the labels but turns the font white 
+                                  # so that the plot sizing is unchanged but each facet row isn't labelled 3 times 
+                                  # when we get to the patchwork step (below). Delete if you want the text back)
+                                  )
+plot(plot_subtractendp_DALY_c)
+
+
+
+# Put all 3 figures together with Patchwork
+plot_subtractendp_all_c = plot_subtractendp_exposure_c + plot_subtractendp_Pinf_c + plot_subtractendp_DALY_c +
+    plot_annotation(
+        title = paste("Subtract endpoints between field-obtained", 
+                      "and manufacturer-claimed LRV scenarios ",
+                       sep = " "), 
+        subtitle = expression(paste(italic("C. jejuni")))) & 
+    theme(plot.title = element_text(size = 14, hjust = 0),    # Left-aligned
+          plot.subtitle = element_text(size = 12, hjust = 0)) # Left-aligned
+plot(plot_subtractendp_all_c)
+
+
+# Save figure for publication
+ggsave("output_QMRA/subtractendpoints_campy.png", 
+        plot = plot_subtractendp_all_c,
+        dpi = 300,
+        width = 8.5,
+        height = 11,
+        units = "in")
+
+```
+
+
+
+## Giardia figure
+```{r giardia figure, fig.width= 8, fig.height=11}
+
+plot_subtractendp_exposure_g = ggplot(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "exposure"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype, group = info_pairnum)) +
+                            stat_ecdf(geom = "step", linewidth = 0.5, alpha = 0.5) +
+                            facet_wrap( ~ info_treatmenttype, ncol = 1, 
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                       limits = c(-0.005, 0.02)
+                                       )+
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Dose", "", "", sep = "")) +
+                            ylab("") +
+    
+                            # Define aesthetic values such as colour                          
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                  strip.text.x = element_text(hjust = 0, vjust = 1, size = 12))
+                            
+plot(plot_subtractendp_exposure_g)
+
+
 
 ```
