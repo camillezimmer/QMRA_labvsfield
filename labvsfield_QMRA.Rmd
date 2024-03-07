@@ -20,6 +20,7 @@ library(mc2d)            # For monte carlo draws
 library(truncnorm)       # To draw from a truncated normal distribution
 library(gghighlight)     # For graphing, to highlight one curve among the others
 library(patchwork)       # For graphing, to stitch multiple graphs together
+library(gt)              # For making summary tables
 
 # Define number of Monte Carlo observations we want per draw (currently 100 for the first chunks, will be redefined further down)
 nMC = 100
@@ -929,12 +930,12 @@ plot_subtractendp_exposure_c = ggplot() +
                                     aes(endpoint_value_subtract, 
                                         colour = info_treatmenttype, 
                                         group = info_pairnum), 
-                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
     
                             # Plot ecdf line for all data together
                             stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "exposure"), 
                                     aes(endpoint_value_subtract, colour = info_treatmenttype),
-                                    geom = "step", linewidth = 0.80, alpha = 1)+
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
 
                             # Create 3 panels, one for each treatment type (filter/chemical/UV)
                             facet_wrap( ~ info_treatmenttype, ncol = 1,
@@ -989,12 +990,12 @@ plot_subtractendp_Pinf_c = ggplot() +
                                     aes(endpoint_value_subtract, 
                                         colour = info_treatmenttype, 
                                         group = info_pairnum), 
-                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
     
                             # Plot ecdf line for all data together
                             stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "Pinf"), 
                                     aes(endpoint_value_subtract, colour = info_treatmenttype),
-                                    geom = "step", linewidth = 0.80, alpha = 1)+
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
 
                             # Create 3 panels, one for each treatment type (filter/chemical/UV)
                             facet_wrap( ~ info_treatmenttype, ncol = 1,
@@ -1051,12 +1052,12 @@ plot_subtractendp_DALY_c = ggplot() +
                                     aes(endpoint_value_subtract, 
                                         colour = info_treatmenttype, 
                                         group = info_pairnum), 
-                                    geom = "step", linewidth = 0.15, alpha = 0.25) +
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
     
                             # Plot ecdf line for all data together
                             stat_ecdf(data = filter(allQMRA_graph, info_organism == "Ecoli"  & endpoint_name == "DALY"), 
                                     aes(endpoint_value_subtract, colour = info_treatmenttype),
-                                    geom = "step", linewidth = 0.80, alpha = 1)+
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
 
                             # Create 3 panels, one for each treatment type (filter/chemical/UV)
                             facet_wrap( ~ info_treatmenttype, ncol = 1,
@@ -1134,25 +1135,53 @@ ggsave("output_QMRA/subtractendpoints_campy.png",
 ## Giardia figure
 ```{r giardia figure, fig.width= 8, fig.height=11}
 
-plot_subtractendp_exposure_g = ggplot(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "exposure"), 
-                                    aes(endpoint_value_subtract, colour = info_treatmenttype, group = info_pairnum)) +
-                            stat_ecdf(geom = "step", linewidth = 0.5, alpha = 0.5) +
-                            facet_wrap( ~ info_treatmenttype, ncol = 1, 
+
+## Draw graph for exposure
+plot_subtractendp_exposure_g = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "exposure"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "exposure"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
                                     labeller = labeller(info_treatmenttype = treatment_type_labs)) +
     
                             # Define scales 
                             scale_x_continuous(trans='pseudo_log',
                                        limits = c(-0.005, 0.02)
-                                       )+
+                                       ) +
                             scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
     
                             # Define axis labels
-                            xlab(paste("Dose", "", "", sep = "")) +
+                            xlab(paste("Difference in dose", "", "", sep = "")) +
                             ylab("") +
     
-                            # Define aesthetic values such as colour                          
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "yeast"  & endpoint_name == "exposure"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
                             theme_bw() +
                             scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
                             theme(legend.position = "none",
                                   text = element_text(size = 12), 
                                   axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
@@ -1160,8 +1189,326 @@ plot_subtractendp_exposure_g = ggplot(data = filter(allQMRA_graph, info_organism
                                   panel.grid.minor = element_blank(), 
                                   strip.background = element_rect(fill = "white", color = NA),
                                   strip.text.x = element_text(hjust = 0, vjust = 1, size = 12))
-                            
 plot(plot_subtractendp_exposure_g)
+
+
+## Draw graph for Pinf
+plot_subtractendp_Pinf_g = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "Pinf"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "Pinf"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                       limits = c(-0.00025, 0.00075),
+                                       breaks = c(-0.00025, 0, 0.00025, 0.0005, 0.00075),
+                                       labels = c(expression(-2.5%.%10^{-4}),
+                                           "0",
+                                           expression(2.5%.%10^{-4}),
+                                           expression(5.0%.%10^{-4}),
+                                           expression(7.5%.%10^{-4}))
+                                       ) +
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Difference in", "probability of infection", sep = "\n")) +
+                            ylab("") +
+    
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "yeast"  & endpoint_name == "Pinf"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                  strip.text.x = element_text(colour = "white", hjust = 0, vjust = 1, size = 12)
+                                  # NOTE: strip.text.x being set to white keeps the labels but turns the font white 
+                                  # so that the plot sizing is unchanged but each facet row isn't labelled 3 times 
+                                  # when we get to the patchwork step (below). Delete if you want the text back
+                                  )
+plot(plot_subtractendp_Pinf_g)
+
+
+
+## Draw graph for DALYs
+plot_subtractendp_DALY_g = ggplot() +
+                            
+                            # Plot ecdf lines for each lab-field data pair
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "DALY"), 
+                                    aes(endpoint_value_subtract, 
+                                        colour = info_treatmenttype, 
+                                        group = info_pairnum), 
+                                    geom = "step", linewidth = 0.15, alpha = 0.55) +
+    
+                            # Plot ecdf line for all data together
+                            stat_ecdf(data = filter(allQMRA_graph, info_organism == "yeast"  & endpoint_name == "DALY"), 
+                                    aes(endpoint_value_subtract, colour = info_treatmenttype),
+                                    geom = "step", linewidth = 0.85, alpha = 1)+
+
+                            # Create 3 panels, one for each treatment type (filter/chemical/UV)
+                            facet_wrap( ~ info_treatmenttype, ncol = 1,
+                                    labeller = labeller(info_treatmenttype = treatment_type_labs)) +
+    
+                            # Define scales 
+                            scale_x_continuous(trans='pseudo_log',
+                                       limits = c((-0.5*10^-7),
+                                                  (1*10^-7)),
+                                       breaks = c((-5*10^-8),
+                                                  # (-1*10^-6),
+                                                  0,
+                                                  (5*10^-8),
+                                                  (1*10^-7)),
+                                       labels = c(
+                                           expression(-5%.%10^{-8}),
+                                           "0",
+                                           expression(5%.%10^{-8}),
+                                           expression(1%.%10^{-7}))
+                                       ) +
+                            scale_y_continuous(breaks = c(0.1, 0.5, 0.9), limits = c(0, NA)) +
+    
+                            # Define axis labels
+                            xlab(paste("Difference in DALYs", "", "", sep = "")) +
+                            ylab("") +
+    
+                            # Draw dashed lines at the 10% and 90% percentiles
+                            geom_hline(yintercept = 0.1, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+                            geom_hline(yintercept = 0.9, linetype = "dashed", colour = "black", size = 0.5, alpha = 0.75) +
+    
+                            # Draw diamond shapes for mean values
+                            geom_point(data = filter(allQMRA_graphmeans, info_organism == "yeast"  & endpoint_name == "DALY"),
+                                       aes(x = endpoint_value_subtract_mean, 
+                                           y = endpoint_value_subtract_mean_yval, 
+                                           colour = info_treatmenttype, 
+                                           fill = info_treatmenttype),
+                                       shape = 23, size = 2.5, stroke = 1.5
+                                       ) +
+    
+                            # Define aesthetic values such as colour
+                            theme_bw() +
+                            scale_color_manual(values = brew_3) +
+                            scale_fill_manual(values = fill_3) +
+                            theme(legend.position = "none",
+                                  text = element_text(size = 12), 
+                                  axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+                                  axis.title.x = element_text(size=12),
+                                  panel.grid.minor = element_blank(), 
+                                  strip.background = element_rect(fill = "white", color = NA),
+                                strip.text.x = element_text(colour = "white", hjust = 0, vjust = 1, size = 12)
+                                  # NOTE: strip.text.x being set to white keeps the labels but turns the font white 
+                                  # so that the plot sizing is unchanged but each facet row isn't labelled 3 times 
+                                  # when we get to the patchwork step (below). Delete if you want the text back)
+                                  )
+plot(plot_subtractendp_DALY_g)
+
+
+
+# Put all 3 figures together with Patchwork
+plot_subtractendp_all_g = plot_subtractendp_exposure_g + plot_subtractendp_Pinf_g + plot_subtractendp_DALY_g +
+    plot_annotation(
+        title = paste("Subtract endpoints between field-obtained", 
+                      "and manufacturer-claimed LRV scenarios ",
+                       sep = " "), 
+        subtitle = expression(paste(italic("G. lamblia")))) & 
+    theme(plot.title = element_text(size = 14, hjust = 0),    # Left-aligned
+          plot.subtitle = element_text(size = 12, hjust = 0)) # Left-aligned
+plot(plot_subtractendp_all_g)
+
+
+
+# Save figure for publication
+ggsave("output_QMRA/subtractendpoints_giardia.png", 
+        plot = plot_subtractendp_all_g,
+        dpi = 300,
+        width = 8.5,
+        height = 11,
+        units = "in")
+
+
+```
+
+
+# QMRA summary tables for publication SI
+```{r summary tables}
+
+### Data wrangling
+## NOTE: This is a bit repeated from the chunk "wrangle data for figures" but I didn't want to use the same df so I'm redoing it here
+# Wrangle data wider, to figure out the difference in lab vs field endpoints
+allQMRA_forsummary = allQMRA_long %>%
+    pivot_wider(                    # Pivot wider so that manuf - field can be calculated
+        names_from = info_setting,
+        values_from = endpoint_value
+    ) %>%
+    rename(                         # Rename columns to match our naming scheme
+        endpoint_value_field = field,
+        endpoint_value_manuf = manuf
+    ) %>%
+    dplyr::select(                  # Select the relevant columns
+                  info_surveynum,
+                  info_pairnum,
+                  info_treatmenttype,
+                  info_treatmentname,
+                  info_organism,
+
+                  input_LRV,
+                  
+                  endpoint_name,
+                  endpoint_value_field,
+                  endpoint_value_manuf,
+                  ) 
+    
+# Subtract endpoints to find the difference
+# Take endpoint_field - endpoint_manuf
+# So that if LRV_manuf > LRV_field, then the difference would be positive
+allQMRA_forsummary = allQMRA_forsummary %>%
+    mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf)
+
+
+# Pivot_longer again, so that we can group_by setting
+allQMRA_forsummary = allQMRA_forsummary %>%
+    pivot_longer(cols = starts_with("endpoint_value"),
+                 names_to = "info_setting",
+                 values_to = "endpoint_value",
+                 names_prefix = "endpoint_value_")
+
+
+
+### Calculate summary stats for summary table
+summarytable_output = allQMRA_forsummary %>%
+    # Group and calc stats
+    group_by(info_organism, info_setting, info_treatmenttype, endpoint_name) %>%      # Tell R to group means by these variables
+    summarise(
+        n = n(), 
+        endpoint_mean = mean(endpoint_value),                   # Get mean values
+        endpoint_10 = quantile(endpoint_value, probs = 0.1),    # 10th percentile
+        endpoint_50 = quantile(endpoint_value, probs = 0.5),    # 50th percentile (median)
+        endpoint_90 = quantile(endpoint_value, probs = 0.9)     # 90th percentile 
+    ) %>%
+
+    # Pivot this table wider, so that each column contains an endpoint summary stat for exp/Pinf/DALY
+    pivot_wider(
+        names_from = endpoint_name,
+        values_from = c(endpoint_mean, endpoint_10, endpoint_50, endpoint_90)
+    ) %>%
+    
+    # Make a new column with proper pathogen names
+    mutate(
+        gt_organism = case_when(
+                    info_organism == "Ecoli" ~ " C. jejuni",
+                    info_organism == "yeast" ~ "G. lamblia"
+        ), .after = info_organism
+    ) %>%
+    
+    # Make another new column with proper setting names
+    mutate(
+        gt_setting = case_when(
+                    info_setting == "field" ~ "Fieldwork 2021",
+                    info_setting == "manuf" ~ "Manufacturer claim",
+                    info_setting == "subtract" ~ "Difference between field and manufacturer"
+        ), .after = info_setting
+    ) %>%
+    
+    # Make another new column with proper treatment type names
+    mutate(
+        gt_treatmenttype = case_when(
+            info_treatmenttype == "UV" ~ "UV",
+            info_treatmenttype == "chemical" ~ "Chemical",
+            info_treatmenttype == "filter" ~ "Filter"
+        ), .after = info_treatmenttype
+    )
+
+
+
+### Make summary table using gt 
+summarytable_output %>%
+    # Wrangle data
+    ungroup() %>%
+    dplyr::select(-c(n, info_organism, info_setting, info_treatmenttype)) %>%
+    
+    # Tell it to do a gt table
+    # Also specify to divide the table according to organism and setting
+    gt(groupname_col = "gt_organism",
+       rowname_col = "gt_setting"
+    ) %>%
+    
+    # Scientific formatting
+    fmt_scientific(
+        columns = starts_with("endpoint"),
+        decimals = 2
+    ) %>%
+    
+    # Make table spanners
+    tab_spanner(
+        label = "Dose",
+        columns = ends_with("exposure")
+    ) %>%
+    tab_spanner(
+        label = "Probability of infection",
+        columns = ends_with("Pinf")
+    ) %>%
+    tab_spanner(
+        label = "DALYs",
+        columns = ends_with("DALY")
+    ) %>%
+    
+    # Rename columns
+    cols_label(
+        gt_treatmenttype = "Treatment type",
+        
+        endpoint_mean_exposure = "Mean",
+        endpoint_10_exposure = "10th Percentile", 
+        endpoint_50_exposure = "50th Percentile (Median)", 
+        endpoint_90_exposure = "90th Percentile", 
+        
+        endpoint_mean_Pinf = "Mean",
+        endpoint_10_Pinf = "10th Percentile", 
+        endpoint_50_Pinf = "50th Percentile (Median)", 
+        endpoint_90_Pinf = "90th Percentile", 
+        
+        endpoint_mean_DALY = "Mean",
+        endpoint_10_DALY = "10th Percentile", 
+        endpoint_50_DALY = "50th Percentile (Median)", 
+        endpoint_90_DALY = "90th Percentile"
+
+    ) %>%
+
+    # Do aesthetics 
+    cols_align(align = "left") %>%
+    tab_style(
+        style = cell_text(style = "italic"),
+        locations = cells_row_groups(groups = c(1,2))
+        ) %>%
+    
+    # Save
+    gtsave("output_QMRA/summarytable.docx")
 
 
 
