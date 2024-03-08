@@ -728,7 +728,7 @@ doQMRA_labvfield = function(nMC, LRV_manuf, LRV_field, microbe) {
     endpoints_manuf = endpoints_manuf %>%
         mutate(info_setting = "manuf", .before = endpoint_exposure) %>%
         mutate(process_Pillinf = Pillinf) %>%
-        mutate(input_LRV = LRV_field, .after = info_setting)
+        mutate(input_LRV = LRV_manuf, .after = info_setting)
     
     # Use rbind to make one big dataframe
     endpoints = rbind(endpoints_field, endpoints_manuf)
@@ -752,7 +752,7 @@ tryoneQMRA = doQMRA_labvfield(nMC = nMC,
 
 
 # Initialize
-nMC = 1000
+nMC = 10
 allQMRA = tibble()
 
 # Do for loop
@@ -834,11 +834,7 @@ allQMRA_long = allQMRA %>%
 allQMRA_graph = allQMRA_long %>%
     pivot_wider(                    # Pivot wider so that manuf - field can be calculated
         names_from = info_setting,
-        values_from = endpoint_value
-    ) %>%
-    rename(                         # Rename columns to match our naming scheme
-        endpoint_value_field = field,
-        endpoint_value_manuf = manuf
+        values_from = c(endpoint_value, input_LRV)
     ) %>%
     dplyr::select(                  # Select the relevant columns
                   info_surveynum,
@@ -847,7 +843,8 @@ allQMRA_graph = allQMRA_long %>%
                   info_treatmentname,
                   info_organism,
 
-                  input_LRV,
+                  input_LRV_field,
+                  input_LRV_manuf,
                   
                   endpoint_name,
                   endpoint_value_field,
@@ -856,9 +853,12 @@ allQMRA_graph = allQMRA_long %>%
     
 # Subtract endpoints to find the difference
 # Take endpoint_field - endpoint_manuf
-# So that if LRV_manuf > LRV_field, then the difference would be positive
+# and LRV_field - LRV_manuf
+# So that if LRV_manuf > LRV_field, then the difference in health risk would be positive
+# and difference in LRV would be negative
 allQMRA_graph = allQMRA_graph %>%
-    mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf)
+    mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf) %>%
+    mutate(input_LRV_subtract = input_LRV_field - input_LRV_manuf, .after = input_LRV_manuf)
 
 
 ### Calculate overall means for graphing
@@ -1357,6 +1357,7 @@ ggsave("output_QMRA/subtractendpoints_giardia.png",
 
 
 # QMRA summary tables for publication SI
+## By treatment category: UV/filter/chemical
 ```{r summary tables}
 
 ### Data wrangling
@@ -1365,12 +1366,14 @@ ggsave("output_QMRA/subtractendpoints_giardia.png",
 allQMRA_forsummary = allQMRA_long %>%
     pivot_wider(                    # Pivot wider so that manuf - field can be calculated
         names_from = info_setting,
-        values_from = endpoint_value
+        values_from = c(endpoint_value, input_LRV)
     ) %>%
     rename(                         # Rename columns to match our naming scheme
-        endpoint_value_field = field,
-        endpoint_value_manuf = manuf
-    ) %>%
+        endpoint_field = endpoint_value_field,
+        endpoint_manuf = endpoint_value_manuf,
+        LRV_field = input_LRV_field,
+        LRV_manuf = input_LRV_manuf
+        ) %>%
     dplyr::select(                  # Select the relevant columns
                   info_surveynum,
                   info_pairnum,
@@ -1378,26 +1381,37 @@ allQMRA_forsummary = allQMRA_long %>%
                   info_treatmentname,
                   info_organism,
 
-                  input_LRV,
+                  LRV_field,
+                  LRV_manuf,
                   
                   endpoint_name,
-                  endpoint_value_field,
-                  endpoint_value_manuf,
+                  endpoint_field,
+                  endpoint_manuf,
                   ) 
     
 # Subtract endpoints to find the difference
 # Take endpoint_field - endpoint_manuf
-# So that if LRV_manuf > LRV_field, then the difference would be positive
+# and LRV_field - LRV_manuf
+# So that if LRV_manuf > LRV_field, then the difference in health risk would be positive
+# and difference in LRV would be negative
 allQMRA_forsummary = allQMRA_forsummary %>%
-    mutate(endpoint_value_subtract = endpoint_value_field - endpoint_value_manuf)
+    mutate(endpoint_subtract = endpoint_field - endpoint_manuf) %>%
+    mutate(LRV_subtract = LRV_field - LRV_manuf, .after = LRV_manuf)
 
 
 # Pivot_longer again, so that we can group_by setting
 allQMRA_forsummary = allQMRA_forsummary %>%
-    pivot_longer(cols = starts_with("endpoint_value"),
-                 names_to = "info_setting",
-                 values_to = "endpoint_value",
-                 names_prefix = "endpoint_value_")
+  pivot_longer(cols = -c(info_surveynum, info_pairnum, info_treatmenttype, info_treatmentname, info_organism, endpoint_name),
+               names_to = c(".value","location"),
+               names_pattern = "(LRV|endpoint)_(manuf|field|subtract)",
+               values_to = c("value", "type")) %>%
+    
+    rename(                         # Rename columns to match our naming scheme
+        endpoint_value = endpoint,
+        LRV_value = LRV,
+        info_setting = location
+    )
+
 
 
 
@@ -1406,11 +1420,12 @@ summarytable_output = allQMRA_forsummary %>%
     # Group and calc stats
     group_by(info_organism, info_setting, info_treatmenttype, endpoint_name) %>%      # Tell R to group means by these variables
     summarise(
-        n = n(), 
+        nsurveys = n()/nMC, 
         endpoint_mean = mean(endpoint_value),                   # Get mean values
         endpoint_10 = quantile(endpoint_value, probs = 0.1),    # 10th percentile
         endpoint_50 = quantile(endpoint_value, probs = 0.5),    # 50th percentile (median)
-        endpoint_90 = quantile(endpoint_value, probs = 0.9)     # 90th percentile 
+        endpoint_90 = quantile(endpoint_value, probs = 0.9),     # 90th percentile 
+        LRV_mean = mean(LRV_value)
     ) %>%
 
     # Pivot this table wider, so that each column contains an endpoint summary stat for exp/Pinf/DALY
@@ -1451,7 +1466,7 @@ summarytable_output = allQMRA_forsummary %>%
 summarytable_output %>%
     # Wrangle data
     ungroup() %>%
-    dplyr::select(-c(n, info_organism, info_setting, info_treatmenttype)) %>%
+    dplyr::select(-c(info_organism, info_setting, info_treatmenttype)) %>%
     
     # Tell it to do a gt table
     # Also specify to divide the table according to organism and setting
@@ -1464,6 +1479,13 @@ summarytable_output %>%
         columns = starts_with("endpoint"),
         decimals = 2
     ) %>%
+    
+    # Number formatting
+    fmt_number(
+        columns = LRV_mean,
+        decimals = 2
+    ) %>%
+
     
     # Make table spanners
     tab_spanner(
@@ -1482,6 +1504,8 @@ summarytable_output %>%
     # Rename columns
     cols_label(
         gt_treatmenttype = "Treatment type",
+        nsurveys = "Number of surveys",
+        LRV_mean = "Mean LRV",
         
         endpoint_mean_exposure = "Mean",
         endpoint_10_exposure = "10th Percentile", 
@@ -1509,6 +1533,222 @@ summarytable_output %>%
     
     # Save
     gtsave("output_QMRA/summarytable.docx")
+
+
+
+```
+
+
+
+
+## By treatment device name (so 104 x 3 x 2 rows)
+```{r summary tables by device name}
+
+### Data wrangling
+## NOTE: This is a bit repeated from the chunk "wrangle data for figures" but I didn't want to use the same df so I'm redoing it here
+# Wrangle data wider, to figure out the difference in lab vs field endpoints
+allQMRA_forsummary_treatmentdev  = allQMRA_long %>%
+    pivot_wider(                    # Pivot wider so that manuf - field can be calculated
+        names_from = info_setting,
+        values_from = c(endpoint_value, input_LRV)
+    ) %>%
+    rename(                         # Rename columns to match our naming scheme
+        endpoint_field = endpoint_value_field,
+        endpoint_manuf = endpoint_value_manuf,
+        LRV_field = input_LRV_field,
+        LRV_manuf = input_LRV_manuf
+        ) %>%
+    dplyr::select(                  # Select the relevant columns
+                  info_surveynum,
+                  info_pairnum,
+                  info_treatmenttype,
+                  info_treatmentname,
+                  info_organism,
+
+                  LRV_field,
+                  LRV_manuf,
+                  
+                  endpoint_name,
+                  endpoint_field,
+                  endpoint_manuf,
+                  ) 
+    
+# Subtract endpoints to find the difference
+# Take endpoint_field - endpoint_manuf
+# and LRV_field - LRV_manuf
+# So that if LRV_manuf > LRV_field, then the difference in health risk would be positive
+# and difference in LRV would be negative
+allQMRA_forsummary_treatmentdev  = allQMRA_forsummary_treatmentdev  %>%
+    mutate(endpoint_subtract = endpoint_field - endpoint_manuf) %>%
+    mutate(LRV_subtract = LRV_field - LRV_manuf, .after = LRV_manuf)
+
+
+# Pivot_longer again, so that we can group_by setting
+allQMRA_forsummary_treatmentdev  = allQMRA_forsummary_treatmentdev  %>%
+  pivot_longer(cols = -c(info_surveynum, info_pairnum, info_treatmenttype, info_treatmentname, info_organism, endpoint_name),
+               names_to = c(".value","location"),
+               names_pattern = "(LRV|endpoint)_(manuf|field|subtract)",
+               values_to = c("value", "type")) %>%
+    
+    rename(                         # Rename columns to match our naming scheme
+        endpoint_value = endpoint,
+        LRV_value = LRV,
+        info_setting = location
+    )
+
+
+
+
+### Calculate summary stats for summary table
+summarytable_output_treatmentdev = allQMRA_forsummary_treatmentdev %>%
+    # Group and calc stats
+    group_by(info_organism,               # Tell R to group means by these variables
+             info_setting, 
+             info_treatmenttype, 
+             info_treatmentname, 
+             endpoint_name) %>%
+    summarise(
+        n_datapoints = n()/nMC,                                 # Get the number of surveys with that respective device
+        endpoint_mean = mean(endpoint_value),                   # Get mean values
+        endpoint_10 = quantile(endpoint_value, probs = 0.1),    # 10th percentile
+        endpoint_50 = quantile(endpoint_value, probs = 0.5),    # 50th percentile (median)
+        endpoint_90 = quantile(endpoint_value, probs = 0.9),    # 90th percentile 
+        LRV_mean = mean(LRV_value)                              # Get the mean LRV
+    ) %>%
+    pivot_wider(
+        names_from = endpoint_name,
+        values_from = c(endpoint_mean, endpoint_10, endpoint_50, endpoint_90)
+    ) %>%
+    
+    # Make a new column with proper pathogen names
+    mutate(
+        gt_organism = case_when(
+                    info_organism == "Ecoli" ~ " C. jejuni",
+                    info_organism == "yeast" ~ "G. lamblia"
+        ), .after = info_organism
+    ) %>%
+    
+    # Make another new column with proper setting names
+    mutate(
+        gt_setting = case_when(
+                    info_setting == "field" ~ "Fieldwork 2021",
+                    info_setting == "manuf" ~ "Manufacturer claim",
+                    info_setting == "subtract" ~ "Difference between field and manufacturer"
+        ), .after = info_setting
+    ) %>%
+    
+    # Make another new column with proper treatment type names
+    mutate(
+        gt_treatmenttype = case_when(
+            info_treatmenttype == "UV" ~ "UV",
+            info_treatmenttype == "chemical" ~ "Chemical",
+            info_treatmenttype == "filter" ~ "Filter"
+        ), .after = info_treatmenttype
+    ) %>%
+    
+    # Make another new column with proper names for the treatment devices
+    mutate(
+        gt_treatmentname = case_when(
+            info_treatmentname == "aquatabs" ~ "Aquatabs",
+            info_treatmentname == "aquatabs_20L" ~ "Aquatabs, 20L",
+            info_treatmentname == "grayl" ~ "Grayl",
+            info_treatmentname == "katadyn_basecamppro10L" ~ "Katadyn Base Camp Pro, 10 L",
+            info_treatmentname == "katadyn_befree" ~ "Katadyn BeFree", 
+            info_treatmentname == "katadyn_hikerpro" ~ "Katadyn Hiker Pro",
+            info_treatmentname == "katadyn_vario" ~ "Katadyn Vario",
+            info_treatmentname == "lifestraw_flex" ~ "Lifestraw Flex",
+            info_treatmentname == "miniwell_L630" ~ "Miniwell L630",
+            info_treatmentname == "MSR_autoflow" ~ "MSR Autoflow",
+            info_treatmentname == "MSR_guardian" ~ "MSR Guardian",
+            info_treatmentname == "MSR_hyperflow" ~ "MSR Hyperflow",
+            info_treatmentname == "MSR_miniworks" ~ "MSR Miniworks",
+            info_treatmentname == "MSR_trailshot" ~ "MSR Trailshot",
+            info_treatmentname == "platypus_gravityworks" ~ "Platypus GravityWorks",
+            info_treatmentname == "printine_filter" ~ "Pristine Filter",
+            info_treatmentname == "pristine_drops" ~ "Pristine Drops",
+            info_treatmentname == "sawyer_microsqueeze" ~ "Sawyer Micro Squeeze",
+            info_treatmentname == "sawyer_mini" ~ "Sawyer Mini",
+            info_treatmentname == "sawyer_squeeze" ~ "Sawyer Squeeze",
+            info_treatmentname == "steripen" ~ "SteriPen",
+            info_treatmentname == "survivor_prox" ~ "Survivor Pro X",
+            info_treatmentname == "versa_flow" ~ "Versa Flow"
+        ), .after = info_treatmentname
+    )
+
+
+
+### Make summary table using gt 
+summarytable_output_treatmentdev %>%
+    # Wrangle data
+    ungroup() %>%
+    dplyr::select(-c(info_organism, info_setting, info_treatmenttype, info_treatmentname)) %>%
+    
+    # Tell it to do a gt table
+    # Also specify to divide the table according to organism and setting
+    gt(groupname_col = "gt_organism",
+       rowname_col = "gt_setting"
+    ) %>%
+    
+    # Scientific formatting
+    fmt_scientific(
+        columns = starts_with("endpoint"),
+        decimals = 2
+    ) %>%
+    
+    # Format LRV column
+    fmt_number(
+        columns = LRV_mean,
+        decimals = 2
+    ) %>%
+    
+    # Make table spanners
+    tab_spanner(
+        label = "Dose",
+        columns = ends_with("exposure")
+    ) %>%
+    tab_spanner(
+        label = "Probability of infection",
+        columns = ends_with("Pinf")
+    ) %>%
+    tab_spanner(
+        label = "DALYs",
+        columns = ends_with("DALY")
+    ) %>%
+    
+    # Rename columns
+    cols_label(
+        gt_treatmenttype = "Treatment type",
+        gt_treatmentname = "Device name",
+        n_datapoints = "Number of surveys",
+        LRV_mean = "Mean LRV",
+        
+        endpoint_mean_exposure = "Mean",
+        endpoint_10_exposure = "10th Percentile", 
+        endpoint_50_exposure = "50th Percentile (Median)", 
+        endpoint_90_exposure = "90th Percentile", 
+        
+        endpoint_mean_Pinf = "Mean",
+        endpoint_10_Pinf = "10th Percentile", 
+        endpoint_50_Pinf = "50th Percentile (Median)", 
+        endpoint_90_Pinf = "90th Percentile", 
+        
+        endpoint_mean_DALY = "Mean",
+        endpoint_10_DALY = "10th Percentile", 
+        endpoint_50_DALY = "50th Percentile (Median)", 
+        endpoint_90_DALY = "90th Percentile"
+
+    ) %>%
+
+    # Do aesthetics 
+    cols_align(align = "left") %>%
+    tab_style(
+        style = cell_text(style = "italic"),
+        locations = cells_row_groups(groups = c(1,2))
+        ) %>%
+    
+    # Save
+    gtsave("output_QMRA/summarytable_bytreatmentdevice.docx")
+
 
 
 
