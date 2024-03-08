@@ -18,8 +18,8 @@ library(readxl)          # For reading excel files
 library(writexl)         # For writing excel files
 library(mc2d)            # For monte carlo draws
 library(truncnorm)       # To draw from a truncated normal distribution
-library(gghighlight)     # For graphing, to highlight one curve among the others
 library(patchwork)       # For graphing, to stitch multiple graphs together
+library(RColorBrewer)    # For making nicely coloured graphs
 library(gt)              # For making summary tables
 
 # Define number of Monte Carlo observations we want per draw (currently 100 for the first chunks, will be redefined further down)
@@ -815,14 +815,6 @@ allQMRA_long = allQMRA %>%
     ) 
 
 
-# For later: pivot longer for sensitivity analysis
-# #     pivot_longer(
-#         cols = starts_with("process"),
-#         names_to = "process_name", 
-#         values_to = "process_value",
-#         names_prefix = "process_"
-#     ) %>%
-
 ```
 
 
@@ -895,7 +887,7 @@ for(i in 1:nrow(allQMRA_graphmeans)) {
 
 
 ### Graph setup 
-# Establish colour palette, from Rcolourbrewer
+# Establish colour palette, from Rcolourbrewer palette "RdYlBu"
 brew_11 = c("#A50026",
             "#D73027",
             "#F46D43",
@@ -1750,6 +1742,202 @@ summarytable_output_treatmentdev %>%
     gtsave("output_QMRA/summarytable_bytreatmentdevice.docx")
 
 
+```
 
+
+# Sensitivity analysis
+## Rough correlations analysis
+```{r correlations analysis, fig.width= 11, fig.height=8}
+
+### Data wrangling
+# Wrangle data longer, so that the process column values are all one column
+allQMRA_forcorr = allQMRA_long %>%
+    rename(process_LRV = input_LRV) %>%  # Rename LRV column so it'll get pivoted 
+    pivot_longer(
+        cols = starts_with("process"),
+        names_to = "process_name",
+        values_to = "process_value",
+        names_prefix = "process_"
+    ) %>%
+    
+    # Filter out the endpoints that don't use Pillinf
+    filter(
+        !(process_name == "Pillinf" & endpoint_name == "exposure"),
+        !(process_name == "Pillinf" & endpoint_name == "Pinf")
+    )
+
+
+
+### Correlations
+# Calculate
+corr_summ = allQMRA_forcorr %>%
+    # Wrangle
+    group_by(info_organism, process_name, endpoint_name) %>%
+    
+    # Make corr and R2 calculations
+    summarize(
+        corr = cor(process_value, endpoint_value, method = "sp"), 
+        R2 = corr^2
+    ) 
+
+
+# Wrangle for gt table
+corr_summ_gt = corr_summ %>%
+    # Make a new column with proper pathogen names
+    mutate(
+        gt_organism = case_when(
+                    info_organism == "Ecoli" ~ " C. jejuni",
+                    info_organism == "yeast" ~ "G. lamblia"
+        ), .after = info_organism
+    ) %>%
+    
+    # Make new column with proper endpoint names
+    mutate(
+        gt_endpoint_name = case_when(
+            endpoint_name == "exposure" ~ "Exposure",
+            endpoint_name == "Pinf" ~ "Probability of infection",
+            endpoint_name == "DALY" ~ "DALYs"
+        ), .after = endpoint_name
+    ) %>%
+    
+    # Make new column with input variable names and units
+    mutate(
+        gt_process_name = case_when(
+           process_name == "DWvoltrip" ~ "Total drinking water consumed (L)",
+           process_name == "LRV" ~ "LRV (unitless)",
+           process_name == "Pillinf" ~ "Probability of illness given infection (unitless)",
+           process_name == "rawWQtrip" ~ "Total raw water pathogen concentration (CFU or oocysts/L)"
+        ), .after = process_name
+    )
+    
+    
+
+# Make summary table
+corr_summ_gt %>%
+    # Wrangle
+    ungroup() %>%
+    dplyr::select(-c(R2, info_organism, endpoint_name, process_name)) %>%
+    group_by(gt_organism) %>%
+    
+    # Make table
+    gt() %>%
+    
+    # Move endpoint_name column to the front
+    cols_move_to_start(
+        columns = gt_endpoint_name
+    ) %>%
+    
+    # Format corr column
+    fmt_number(
+        columns = c(corr),
+        decimals = 4
+    ) %>%
+    
+    # Rename columns
+    cols_label(
+        gt_endpoint_name = "QMRA endpoint",
+        gt_process_name = "Input variable (units)",
+        corr = "Spearman correlation, rho"
+    ) %>%
+
+    # Do aesthetics 
+    cols_align(align = "left") %>%
+    tab_style(
+        style = cell_text(style = "italic"),
+        locations = cells_row_groups()
+        ) 
+    
+    # Save
+    # gtsave("output_QMRA/summarytable_corr.docx")
+
+
+### Graphing
+# Initialize colour aesthetics
+brew_3 = c("#A50026", "#FC8D59", "#4575B4")
+fill_3 = c("#DB99A8","#FED1BD","#B5C8E1")
+
+# Make labels
+allQMRA_forcorr$endpoint_name = factor(allQMRA_forcorr$endpoint_name,
+                                       levels = c("exposure", "Pinf", "DALY"), 
+                                       labels = c("Exposure (#/L)",
+                                                  "Probability of illness (unitless)",
+                                                  "DALYs"))
+allQMRA_forcorr$process_name = factor(allQMRA_forcorr$process_name, 
+                                      levels = c("rawWQtrip", "LRV", "DWvoltrip", "Pillinf"),
+                                      labels = c(paste("Total raw water pathogen", "concentration (#/L)", sep = "\n"),
+                                                 "LRV (unitless)",
+                                                 paste("Total drinking water", "consumed (L)", sep = "\n"),
+                                                 paste("Probability of illness", "given infection (unitless)", sep = "\n")))
+
+# Campylobacter
+corr_plot_campy = ggplot(data = filter(allQMRA_forcorr, info_organism == "Ecoli"),
+                         aes(x = process_value, y = endpoint_value, colour = endpoint_name)) +
+    geom_point(size = 1, alpha = 0.5) +
+    geom_line(stat = "smooth", 
+              method = "lm", 
+              alpha = 1, 
+              size = 1) +
+    facet_grid(endpoint_name ~ process_name, 
+               scales = "free",
+               switch = "y") +
+    theme_bw() +
+    scale_color_manual(values = brew_3) +
+    theme(axis.title = element_blank(),
+          # panel.spacing.x = unit(1,"lines"), 
+          legend.position = "none",
+          text = element_text(size = 12), 
+          axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+          panel.grid.minor = element_blank(), 
+          strip.background = element_rect(fill = "white", color = NA),
+          strip.text.x = element_text(size = 12),
+          strip.text.y = element_text(size = 12)
+          ) +
+    scale_y_continuous(position = "right")
+    
+plot(corr_plot_campy)
+
+# Save figure for publication
+ggsave("output_QMRA/correlationplot_campy.png", 
+        plot = corr_plot_campy,
+        dpi = 300,
+        width = 11,
+        height = 8.5,
+        units = "in")
+
+
+# Giardia
+corr_plot_giardia = ggplot(data = filter(allQMRA_forcorr, info_organism == "yeast"),
+                         aes(x = process_value, y = endpoint_value, colour = endpoint_name)) +
+    geom_point(size = 1, alpha = 0.5) +
+    geom_line(stat = "smooth", 
+              method = "lm", 
+              alpha = 1, 
+              size = 1) +
+    facet_grid(endpoint_name ~ process_name, 
+               scales = "free",
+               switch = "y") +
+    theme_bw() +
+    scale_color_manual(values = brew_3) +
+    theme(axis.title = element_blank(),
+          # panel.spacing.x = unit(1,"lines"), 
+          legend.position = "none",
+          text = element_text(size = 12), 
+          axis.text.x = element_text(angle = 50, vjust = 1, hjust = 1),
+          panel.grid.minor = element_blank(), 
+          strip.background = element_rect(fill = "white", color = NA),
+          strip.text.x = element_text(size = 12),
+          strip.text.y = element_text(size = 12)
+          ) +
+    scale_y_continuous(position = "right")
+    
+plot(corr_plot_giardia)
+
+# Save figure for publication
+ggsave("output_QMRA/correlationplot_giardia.png", 
+        plot = corr_plot_giardia,
+        dpi = 300,
+        width = 11,
+        height = 8.5,
+        units = "in")
 
 ```
