@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 
 #Clear environment
-rm(list = ls())
+# rm(list = ls())
 
 #Load libraries
 library(tidyverse)       # For tidy datasets and graphing 
@@ -40,7 +40,8 @@ nMC = 100
 #   microbe: either "campy" or "giardia"
 
 # Outputs:
-#   not sure of format yet
+#   det_QMRA: A 7 x 1 tibble containing all the calculated deterministic endpoints (trip exposure, Pinf on the trip, DALYs per trip)
+#             as well as the inputs (rawpathconc, DWvol, LRV, Pillinf)
 
 # Process variables (were point-value in our overall QMRA model):
 #   Dose-response relationship: For campylobacter, Pinf follows an approximate Beta-Poisson model with alpha = 0.144 and N50 = 890, per Medema (1996). For giardia, Pinf follows an exponential model with r = 0.0199, per Rose (1991)
@@ -59,21 +60,149 @@ FUN_detQMRA = function(rawpathconc, DWvol, LRV, Pillinf, microbe){
     
     
     ### Endpoint #2: Probability of infection
-    # This will involve an if/else statement
+    #   a: Use dose-response calculation for each refill
+    if(microbe == "campy"){  
+        # Campylobacter dose-response
+        Pinf_refill = Pinf_c(exposure = exposure_trip, plotsdisp = F)
+    } else {
+        # Giardia dose-response
+        Pinf_refill = Pinf_g(exposure = exposure_trip, plotsdisp = F)
+    }
+    #   b: Calculate the overall Pinf for the trip --> second endpoint
+    Pinf_trip = 1 - (1 - Pinf_refill)^21
     
+    
+    ### Endpoint #3: DALYs per 7-day trip
+    #    a: Calculate the Pill, using Pillinf
+    Pill_trip = Pinf_trip * Pillinf
+    
+    #    b: Determine DALY weighting, depending on if campy or giardia
+    if(microbe == "campy"){ 
+        DALY_weight = 4.6E-3
+    } else {
+        DALY_weight = 1.7E-3
+    }
+    
+    #    c: Calculate DALYs (units of YLL)
+    DALY_trip = calcDALYs(Pill_trip = Pill_trip, 
+                          S = 1,       # 100% susceptibility 
+                          DW = DALY_weight, 
+                          n_campingtrips = 1,   # One camping trip
+                          plotsdisp = F)
     
     
     ### Wrangle outputs
+    det_QMRA = tibble(rawpathconc, DWvol, LRV, Pillinf,          # Inputs
+                    exposure_trip, Pinf_trip, DALY_trip) %>%   # Endpoints
+        rename(
+            input_rawpathconc = rawpathconc,
+            input_DWvol = DWvol,
+            input_LRV = LRV,
+            input_Pillinf = Pillinf,
+            
+            endpoint_exposure = exposure_trip, 
+            endpoint_Pinf = Pinf_trip, 
+            endpoint_DALY = DALY_trip
+        )
     
     # Output
-    return(exposure_trip)
+    return(det_QMRA)
     
     
 }
 
 
 
-exp_try = FUN_detQMRA(100, 2, 0.5, "giardia")
+try_detQMRA = FUN_detQMRA(rawpathconc = 10, 
+                      DWvol = 0.5,
+                      LRV = 2,
+                      Pillinf = 0.2,
+                      microbe = "giardia")
+
+```
+
+
+
+# Make function to take the 10,000 MC-drawn inputs and figure out the percentile information
+```{r pull percentile information from MC-drawn inputs}
+
+### Make function to take our QMRA model inputs and figure out what the percentile information is
+
+# Inputs:
+#   allQMRA = a 13 x 4,180,000 dataframe with the QMRA results (see the chunk "cycle through all manuf-field LRV pairs")
+#   percentile = a decimal value for the percentile that is to be calculated (i.e., 0.9 for the 90th/10th percentiles)
+
+# Outputs:
+#   input_percentiles: a 3 x 8 dataframe containing the input_name (the name of the input value), the input_value (the value itself), and percentile (what percentile we're looking at, and also the 50th percentile or median) 
+
+FUN_inputpercentiles = function(QMRAdf, percentile){
+    
+    percentile = 0.9  #for now
+    oneminuspercentile = 1 - percentile
+    
+    ### Get percentiles
+    
+    # Raw water conc percentiles (total throughout the trip)
+    upper_rawpathconc = quantile(QMRAdf$process_rawWQtrip, probs = percentile)
+    mid_rawpathconc = quantile(QMRAdf$process_rawWQtrip, probs = 0.5)
+    lower_rawpathconc = quantile(QMRAdf$process_rawWQtrip, probs = oneminuspercentile)
+    
+    # Total drinking water volume over the trip
+    upper_DWvol = quantile(QMRAdf$process_DWvoltrip, probs = percentile)
+    mid_DWvol = quantile(QMRAdf$process_DWvoltrip, probs = 0.5)
+    lower_DWvol = quantile(QMRAdf$process_DWvoltrip, probs = oneminuspercentile)
+    
+    # LRV
+    upper_LRV = quantile(QMRAdf$input_LRV, probs = percentile)
+    mid_LRV = quantile(QMRAdf$input_LRV, probs = 0.5)
+    lower_LRV = quantile(QMRAdf$input_LRV, probs = oneminuspercentile)
+    
+    # Probability of illness given infection
+    upper_Pillinf = quantile(QMRAdf$process_Pillinf, percentile)
+    mid_Pillinf = quantile(QMRAdf$process_Pillinf, 0.5)
+    lower_Pillinf = quantile(QMRAdf$process_Pillinf, oneminuspercentile)
+    
+    
+    ### Wrangle outputs
+    # Make tibble
+    input_name = c(rep("rawpathconc", 3),
+                   rep("DWvol", 3),
+                   rep("LRV", 3),
+                   rep("Pillinf", 3))
+    input_value = c(upper_rawpathconc, mid_rawpathconc, lower_rawpathconc, 
+                    upper_DWvol, mid_DWvol, lower_DWvol, 
+                    upper_LRV, mid_LRV, lower_LRV, 
+                    upper_Pillinf, mid_Pillinf, lower_Pillinf)
+    percentile = c(rep(c(percentile, 0.5, oneminuspercentile), 4))
+    nicepercentiles = tibble(input_name, input_value, percentile)
+    print(nicepercentiles)
+    
+    # Make actual tibble that will go into a for loop later
+    rawpathconc = c(mid_rawpathconc, upper_rawpathconc, lower_rawpathconc, rep(mid_rawpathconc, 8))
+    DWvol = c(rep(mid_DWvol, 3), upper_DWvol, lower_DWvol, rep(mid_DWvol, 6))
+    LRV = c(rep(mid_LRV, 5), upper_LRV, lower_LRV, rep(mid_LRV, 4))
+    Pillinf = c(rep(mid_Pillinf, 7), upper_Pillinf, lower_Pillinf, rep(mid_Pillinf, 2))
+    input_percentiles = tibble(rawpathconc, DWvol, LRV, Pillinf)
+    
+    # Return tibble
+    return(input_percentiles)
+    
+}
+
+tryinputpercentiles = FUN_inputpercentiles(QMRAdf = filter(allQMRA, allQMRA$info_organism == "yeast"),
+                                          percentile = 0.9)
+
+```
+
+
+
+# Make for loop to calculate the deterministic QMRA endpoints for each row in the input_percentiles dataframe
+```{r for loop to calculate deterministic QMRA endpoints}
+
+### Make a for loop to calculate a determinstic QMRA based on the inputs of each row of the input_percentiles dataframe
+
+
+
 
 ```
 
@@ -84,13 +213,72 @@ exp_try = FUN_detQMRA(100, 2, 0.5, "giardia")
 
 
 
-# https://rdrr.io/cran/mc2d/man/ggtornado.html
-data(ec)
-x <- evalmcmod(ec$modEC2, nsv=100, nsu=100, seed=666)
-tor <- tornado(x, 7)
-ggtornado(tor)
-data(total)
-ggtornado(tornadounc(total, 10, use="complete.obs"), which=1)
+# # https://rdrr.io/cran/mc2d/man/ggtornado.html
+# data(ec)
+# x <- evalmcmod(ec$modEC2, nsv=100, nsu=100, seed=666)
+# tor <- tornado(x, 7)
+# ggtornado(tor)
+# data(total)
+# ggtornado(tornadounc(total, 10, use="complete.obs"), which=1)
+
+
+# https://stackoverflow.com/questions/55751978/tornado-both-sided-horizontal-bar-plot-in-r-with-chart-axes-crosses-at-a-given
+
+df <- '
+Parameter Lower_Bound Upper_Bound UL_Difference
+Parameter01 8074 11181 3108 
+Parameter02 8177 11007 2831 
+Parameter03 8879 10188 1308 
+Parameter04 4358 18697 14339 
+Parameter05 9073 10087 1013 
+Parameter06 12034 7572 4462 
+Parameter07 11357 7933 3423 
+Parameter08 9769 9202 567 
+Parameter09 8833 10403 1570 
+Parameter10 13450 4219 9231 
+Parameter11 10691 7915 2776 
+Parameter12 10036 8792 1244
+' %>% read_table2()
+
+# original value of output
+base.value <- 9504
+
+# get order of parameters according to size of intervals
+# (I use this to define the ordering of the factors which I then use to define the positions in the plot)
+order.parameters <- df %>% arrange(UL_Difference) %>%
+  mutate(Parameter=factor(x=Parameter, levels=Parameter)) %>%
+  select(Parameter) %>% unlist() %>% levels()
+
+# width of columns in plot (value between 0 and 1)
+width <- 0.95
+
+# get data frame in shape for ggplot and geom_rect
+df.2 <- df %>% 
+  # gather columns Lower_Bound and Upper_Bound into a single column using gather
+  gather(key='type', value='output.value', Lower_Bound:Upper_Bound) %>%
+  # just reordering columns
+  select(Parameter, type, output.value, UL_Difference) %>%
+  # create the columns for geom_rect
+  mutate(Parameter=factor(Parameter, levels=order.parameters),
+         ymin=pmin(output.value, base.value),
+         ymax=pmax(output.value, base.value),
+         xmin=as.numeric(Parameter)-width/2,
+         xmax=as.numeric(Parameter)+width/2)
+
+# create plot
+# (use scale_x_continuous to change labels in y axis to name of parameters)
+png(width = 960, height = 540)
+ggplot() + 
+  geom_rect(data = df.2, 
+            aes(ymax=ymax, ymin=ymin, xmax=xmax, xmin=xmin, fill=type)) +
+  theme_bw() + 
+  theme(axis.title.y=element_blank(), legend.position = 'bottom',
+        legend.title = element_blank()) + 
+  geom_hline(yintercept = base.value) +
+  scale_x_continuous(breaks = c(1:length(order.parameters)), 
+                     labels = order.parameters) +
+  coord_flip()
+dev.off()
 
 
 ```

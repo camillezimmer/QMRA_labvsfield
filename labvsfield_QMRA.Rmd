@@ -752,7 +752,7 @@ tryoneQMRA = doQMRA_labvfield(nMC = nMC,
 
 
 # Initialize
-nMC = 10
+nMC = 10000
 allQMRA = tibble()
 
 # Do for loop
