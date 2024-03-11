@@ -1,0 +1,98 @@
+---
+title: "sensitivity_tornado"
+author: "Camille Zimmer"
+date: "2024-03-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+#Clear environment
+rm(list = ls())
+
+#Load libraries
+library(tidyverse)       # For tidy datasets and graphing 
+# library(fitdistrplus)    # For fitting distributions
+# library(readxl)          # For reading excel files
+# library(writexl)         # For writing excel files
+library(mc2d)            # For monte carlo draws
+# library(truncnorm)       # To draw from a truncated normal distribution
+# library(patchwork)       # For graphing, to stitch multiple graphs together
+library(RColorBrewer)    # For making nicely coloured graphs
+# library(gt)              # For making summary tables
+
+# Define number of Monte Carlo observations we want per draw (currently 100 for the first chunks, will be redefined further down)
+nMC = 100
+```
+
+
+
+# Make function to do a deterministic QMRA based on point-value inputs
+```{r deterministic QMRA}
+
+### Make function to calculate QMRA endpoints based on point-value inputs that were stochastic in our overall QMRA model
+# Inputs:
+#   rawpathconc = the pathogen concentration in the raw water, in organisms/L
+#   DWvol = the volume of water consumed in each refill (21 refills per 7-day backpacking trip), in L
+#   LRV = the treatment device LRV with respect to each pathogen, unitless
+#   Pillinf = the probability of illness given infection with a pathogen, unitless
+#   microbe: either "campy" or "giardia"
+
+# Outputs:
+#   not sure of format yet
+
+# Process variables (were point-value in our overall QMRA model):
+#   Dose-response relationship: For campylobacter, Pinf follows an approximate Beta-Poisson model with alpha = 0.144 and N50 = 890, per Medema (1996). For giardia, Pinf follows an exponential model with r = 0.0199, per Rose (1991)
+#   DALY weight (DALY_weight): DALYS per illness, for campylobacter is 4.6E-3, and for giardia is 1.7E-3, per USEPA (2010)
+#   Susceptible fraction (S): Susceptible fraction of the population, 100% for both campylobacter and giradia
+
+FUN_detQMRA = function(rawpathconc, DWvol, LRV, Pillinf, microbe){
+    
+    ### Endpoint 1: overall trip exposure
+    # Calculate the exposure per refill
+    survival_frac = 10^(-1*LRV)     # Units are a % of the number of pathogens in the raw water (unitless)
+    DW_conc_refill = rawpathconc * survival_frac * DWvol     # The number of pathogens in each refill (units of # pathogens)
+    
+    # Calculate the exposure over the 7-day trip (21 refills) --> First endpoint
+    exposure_trip = DW_conc_refill * 7    # Units of # pathogens/7-day trip
+    
+    
+    ### Endpoint #2: Probability of infection
+    # This will involve an if/else statement
+    
+    
+    
+    ### Wrangle outputs
+    
+    # Output
+    return(exposure_trip)
+    
+    
+}
+
+
+
+exp_try = FUN_detQMRA(100, 2, 0.5, "giardia")
+
+```
+
+
+
+# Try things from the internet
+```{r try stuff}
+
+
+
+# https://rdrr.io/cran/mc2d/man/ggtornado.html
+data(ec)
+x <- evalmcmod(ec$modEC2, nsv=100, nsu=100, seed=666)
+tor <- tornado(x, 7)
+ggtornado(tor)
+data(total)
+ggtornado(tornadounc(total, 10, use="complete.obs"), which=1)
+
+
+```
+
+
