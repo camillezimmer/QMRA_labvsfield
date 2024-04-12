@@ -752,7 +752,7 @@ tryoneQMRA = doQMRA_labvfield(nMC = nMC,
 
 
 # Initialize
-nMC = 100
+nMC = 10000
 allQMRA = tibble()
 
 # Do for loop
@@ -1360,7 +1360,7 @@ allQMRA_forsummary = allQMRA_long %>%
         names_from = info_setting,
         values_from = c(endpoint_value, input_LRV)
     ) %>%
-    rename(                         # Rename columns to match our naming scheme
+    dplyr::rename(                         # Rename columns to match our naming scheme
         endpoint_field = endpoint_value_field,
         endpoint_manuf = endpoint_value_manuf,
         LRV_field = input_LRV_field,
@@ -1398,7 +1398,7 @@ allQMRA_forsummary = allQMRA_forsummary %>%
                names_pattern = "(LRV|endpoint)_(manuf|field|subtract)",
                values_to = c("value", "type")) %>%
     
-    rename(                         # Rename columns to match our naming scheme
+    dplyr::rename(                         # Rename columns to match our naming scheme
         endpoint_value = endpoint,
         LRV_value = LRV,
         info_setting = location
@@ -1410,8 +1410,8 @@ allQMRA_forsummary = allQMRA_forsummary %>%
 ### Calculate summary stats for summary table
 summarytable_output = allQMRA_forsummary %>%
     # Group and calc stats
-    group_by(info_organism, info_setting, info_treatmenttype, endpoint_name) %>%      # Tell R to group means by these variables
-    summarise(
+    dplyr::group_by(info_organism, info_setting, info_treatmenttype, endpoint_name) %>%      # Tell R to group means by these variables
+    dplyr::summarise(
         nsurveys = n()/nMC, 
         endpoint_mean = mean(endpoint_value),                   # Get mean values
         endpoint_10 = quantile(endpoint_value, probs = 0.1),    # 10th percentile
@@ -1524,7 +1524,7 @@ summarytable_output %>%
         ) %>%
     
     # Save
-    gtsave("output_QMRA/summarytable.html")
+    gtsave("output_QMRA/summarytable.docx")
 
 
 
@@ -1739,7 +1739,7 @@ summarytable_output_treatmentdev %>%
         ) %>%
     
     # Save
-    gtsave("output_QMRA/summarytable_bytreatmentdevice.html")
+    gtsave("output_QMRA/summarytable_bytreatmentdevice.docx")
 
 
 ```
